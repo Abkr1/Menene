@@ -31,11 +31,13 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Initialize AI clients
-openai_client = OpenAI(api_key=os.environ.get('EMERGENT_LLM_KEY'))
-tts_client = texttospeech.TextToSpeechClient.from_service_account_json(
-    os.environ.get('GOOGLE_CREDENTIALS_PATH', 'google_credentials.json')
-) if os.path.exists(os.environ.get('GOOGLE_CREDENTIALS_PATH', 'google_credentials.json')) else None
+# Initialize AI clients (lazily to avoid startup errors)
+openai_client = None
+def get_openai_client():
+    global openai_client
+    if openai_client is None:
+        openai_client = OpenAI(api_key=os.environ.get('EMERGENT_LLM_KEY'))
+    return openai_client
 
 # Create the main app without a prefix
 app = FastAPI(title="Menene - Hausa Conversational AI")
