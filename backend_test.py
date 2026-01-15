@@ -152,10 +152,11 @@ class MeneneAPITester:
         """Test 4: Text-to-Speech Endpoint"""
         print("🔍 Testing Text-to-Speech Endpoint...")
         try:
+            # Use English Nigerian voice since Hausa is not supported by Google TTS
             payload = {
-                "text": "Sannu",  # Hello in Hausa
-                "language": "ha-NG",
-                "voice": "ha-NG-Standard-A"
+                "text": "Hello, how are you?",  # English text since Hausa voices not available
+                "language": "en-NG",
+                "voice": "en-NG-Standard-A"
             }
             
             response = self.session.post(
