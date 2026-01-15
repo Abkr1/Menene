@@ -1,30 +1,601 @@
-import { Text, View, StyleSheet, Image } from "react-native";
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  Alert,
+  useColorScheme,
+  ScrollView,
+} from 'react-native';
+import { Audio } from 'expo-av';
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 
-const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
 
-export default function Index() {
-  console.log(EXPO_PUBLIC_BACKEND_URL, "EXPO_PUBLIC_BACKEND_URL");
-
-  return (
-    <View style={styles.container}>
-      <Image
-        source={require("../assets/images/app-image.png")}
-        style={styles.image}
-      />
-    </View>
-  );
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0c0c0c",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  image: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "contain",
-  },
-});
+interface Conversation {
+  id: string;
+  user_id: string;
+  title: string;
+  language: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export default function MeneneApp() {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  
+  // State
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputText, setInputText] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
+  const [userId] = useState('user-' + Date.now());
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  
+  const flatListRef = useRef<FlatList>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Initialize app
+  useEffect(() => {
+    initializeApp();
+    return () => {
+      if (recording) {
+        recording.unloadAsync();
+      }
+      if (sound) {
+        sound.unloadAsync();
+      }
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, []);
+
+  const initializeApp = async () => {
+    try {
+      // Request audio permissions
+      await Audio.requestPermissionsAsync();
+      
+      // Set audio mode
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+      });
+
+      // Create or load conversation
+      await createConversation();
+    } catch (error) {
+      console.error('Initialization error:', error);
+      Alert.alert('Error', 'Failed to initialize app. Please check permissions.');
+    }
+  };
+
+  const createConversation = async () => {
+    try {
+      const response = await axios.post(`${BACKEND_URL}/api/conversations`, {
+        user_id: userId,
+        language: 'ha',
+      });
+      setCurrentConversation(response.data);
+    } catch (error) {
+      console.error('Failed to create conversation:', error);
+    }
+  };
+
+  // Voice recording functions
+  const startRecording = async () => {
+    try {
+      const { granted } = await Audio.getPermissionsAsync();
+      if (!granted) {
+        Alert.alert('Permission required', 'Microphone permission is needed to record audio.');
+        return;
+      }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+      });
+
+      const { recording: newRecording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+
+      setRecording(newRecording);
+      setIsRecording(true);
+      setRecordingTime(0);
+
+      // Start timer
+      timerRef.current = setInterval(() => {
+        setRecordingTime((prev) => prev + 1);
+      }, 1000);
+
+    } catch (error) {
+      console.error('Failed to start recording:', error);
+      Alert.alert('Error', 'Failed to start recording');
+    }
+  };
+
+  const stopRecording = async () => {
+    try {
+      if (!recording) return;
+
+      setIsRecording(false);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+
+      await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+
+      if (uri && currentConversation) {
+        await transcribeAudio(uri);
+      }
+
+      setRecording(null);
+      setRecordingTime(0);
+
+    } catch (error) {
+      console.error('Failed to stop recording:', error);
+      Alert.alert('Error', 'Failed to stop recording');
+    }
+  };
+
+  const transcribeAudio = async (audioUri: string) => {
+    if (!currentConversation) return;
+
+    setIsLoading(true);
+    try {
+      const formData = new FormData();
+      
+      // Create file object for upload
+      const audioFile: any = {
+        uri: audioUri,
+        type: 'audio/m4a',
+        name: 'recording.m4a',
+      };
+
+      formData.append('audio', audioFile);
+      formData.append('user_id', userId);
+      formData.append('conversation_id', currentConversation.id);
+
+      const response = await axios.post(
+        `${BACKEND_URL}/api/speech-to-text`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+
+      if (response.data.success) {
+        const transcribedText = response.data.transcription;
+        
+        // Add user message to UI
+        const userMessage: Message = {
+          id: response.data.message_id,
+          role: 'user',
+          content: transcribedText,
+          timestamp: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, userMessage]);
+
+        // Get AI response
+        await getAIResponse(transcribedText);
+      }
+
+    } catch (error: any) {
+      console.error('Transcription error:', error);
+      Alert.alert('Error', error.response?.data?.detail || 'Failed to transcribe audio');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const sendTextMessage = async () => {
+    if (!inputText.trim() || !currentConversation) return;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: inputText,
+      timestamp: new Date().toISOString(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    const messageText = inputText;
+    setInputText('');
+
+    await getAIResponse(messageText);
+  };
+
+  const getAIResponse = async (userMessage: string) => {
+    if (!currentConversation) return;
+
+    setIsLoading(true);
+    try {
+      const response = await axios.post(`${BACKEND_URL}/api/chat`, {
+        conversation_id: currentConversation.id,
+        user_id: userId,
+        message: userMessage,
+        language: 'ha',
+      });
+
+      if (response.data.success) {
+        const assistantMessage: Message = {
+          id: response.data.message_id,
+          role: 'assistant',
+          content: response.data.response,
+          timestamp: new Date().toISOString(),
+        };
+
+        setMessages((prev) => [...prev, assistantMessage]);
+
+        // Generate and play TTS for assistant response
+        await playTextToSpeech(response.data.response);
+      }
+
+    } catch (error: any) {
+      console.error('Chat error:', error);
+      Alert.alert('Error', error.response?.data?.detail || 'Failed to get response');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const playTextToSpeech = async (text: string) => {
+    try {
+      setIsPlayingAudio(true);
+
+      const response = await axios.post(`${BACKEND_URL}/api/text-to-speech`, {
+        text,
+        language: 'ha-NG',
+        voice: 'ha-NG-Standard-A',
+      });
+
+      if (response.data.success) {
+        const audioContent = response.data.audio_content;
+        
+        // Create audio from base64
+        const base64Audio = `data:audio/mp3;base64,${audioContent}`;
+        
+        // Unload previous sound
+        if (sound) {
+          await sound.unloadAsync();
+        }
+
+        const { sound: newSound } = await Audio.Sound.createAsync(
+          { uri: base64Audio },
+          { shouldPlay: true }
+        );
+
+        setSound(newSound);
+
+        // Set playback status callback
+        newSound.setOnPlaybackStatusUpdate((status: any) => {
+          if (status.didJustFinish) {
+            setIsPlayingAudio(false);
+          }
+        });
+      }
+
+    } catch (error) {
+      console.error('TTS error:', error);
+      setIsPlayingAudio(false);
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const renderMessage = ({ item }: { item: Message }) => {
+    const isUser = item.role === 'user';
+
+    return (
+      <View
+        style={[
+          styles.messageContainer,
+          isUser ? styles.userMessage : styles.assistantMessage,
+          isDark && (isUser ? styles.userMessageDark : styles.assistantMessageDark),
+        ]}
+      >
+        <Text
+          style={[
+            styles.messageText,
+            isUser ? styles.userMessageText : styles.assistantMessageText,
+            isDark && styles.messageTextDark,
+          ]}
+        >
+          {item.content}
+        </Text>
+      </View>
+    );
+  };
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: isDark ? '#1a1a1a' : '#f5f5f5',
+    },
+    header: {
+      paddingTop: Platform.OS === 'ios' ? 50 : 40,
+      paddingBottom: 15,
+      paddingHorizontal: 20,
+      backgroundColor: isDark ? '#2d2d2d' : '#ffffff',
+      borderBottomWidth: 1,
+      borderBottomColor: isDark ? '#404040' : '#e0e0e0',
+      elevation: 2,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 3,
+    },
+    headerTitle: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: isDark ? '#ffffff' : '#2d2d2d',
+      textAlign: 'center',
+    },
+    headerSubtitle: {
+      fontSize: 12,
+      color: isDark ? '#888' : '#666',
+      textAlign: 'center',
+      marginTop: 4,
+    },
+    messagesList: {
+      flex: 1,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+    },
+    messageContainer: {
+      maxWidth: '80%',
+      marginVertical: 4,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 18,
+      elevation: 1,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+    },
+    userMessage: {
+      alignSelf: 'flex-end',
+      backgroundColor: '#007AFF',
+      borderBottomRightRadius: 4,
+    },
+    userMessageDark: {
+      backgroundColor: '#0A84FF',
+    },
+    assistantMessage: {
+      alignSelf: 'flex-start',
+      backgroundColor: '#ffffff',
+      borderBottomLeftRadius: 4,
+    },
+    assistantMessageDark: {
+      backgroundColor: '#2d2d2d',
+    },
+    messageText: {
+      fontSize: 16,
+      lineHeight: 22,
+    },
+    userMessageText: {
+      color: '#ffffff',
+    },
+    assistantMessageText: {
+      color: '#000000',
+    },
+    messageTextDark: {
+      color: '#ffffff',
+    },
+    inputContainer: {
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      paddingBottom: Platform.OS === 'ios' ? 30 : 12,
+      backgroundColor: isDark ? '#2d2d2d' : '#ffffff',
+      borderTopWidth: 1,
+      borderTopColor: isDark ? '#404040' : '#e0e0e0',
+    },
+    recordingIndicator: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 12,
+      backgroundColor: isDark ? '#1a1a1a' : '#f9f9f9',
+      borderRadius: 12,
+      marginBottom: 8,
+    },
+    recordingDot: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      backgroundColor: '#FF3B30',
+      marginRight: 8,
+    },
+    recordingText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: isDark ? '#ffffff' : '#000000',
+      marginRight: 8,
+    },
+    inputRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    textInput: {
+      flex: 1,
+      minHeight: 40,
+      maxHeight: 100,
+      backgroundColor: isDark ? '#1a1a1a' : '#f5f5f5',
+      borderRadius: 20,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      fontSize: 16,
+      color: isDark ? '#ffffff' : '#000000',
+    },
+    iconButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: '#007AFF',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    iconButtonRecording: {
+      backgroundColor: '#FF3B30',
+    },
+    iconButtonDisabled: {
+      backgroundColor: '#ccc',
+    },
+    loadingContainer: {
+      paddingVertical: 8,
+      alignItems: 'center',
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 40,
+    },
+    emptyText: {
+      fontSize: 18,
+      color: isDark ? '#888' : '#666',
+      textAlign: 'center',
+      marginTop: 16,
+    },
+    emptySubtext: {
+      fontSize: 14,
+      color: isDark ? '#666' : '#999',
+      textAlign: 'center',
+      marginTop: 8,
+    },
+  });
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}
+    >
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Menene</Text>
+        <Text style={styles.headerSubtitle}>Your Hausa AI Assistant</Text>
+      </View>
+
+      {/* Messages List */}
+      {messages.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons
+            name="chatbubbles-outline"
+            size={80}
+            color={isDark ? '#404040' : '#ccc'}
+          />
+          <Text style={styles.emptyText}>Sannu! Welcome to Menene</Text>
+          <Text style={styles.emptySubtext}>
+            Start a conversation by typing or using your voice
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          renderItem={renderMessage}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.messagesList}
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
+        />
+      )}
+
+      {/* Loading Indicator */}
+      {isLoading && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color="#007AFF" />
+        </View>
+      )}
+
+      {/* Input Container */}
+      <View style={styles.inputContainer}>
+        {isRecording && (
+          <View style={styles.recordingIndicator}>
+            <View style={styles.recordingDot} />
+            <Text style={styles.recordingText}>Recording</Text>
+            <Text style={styles.recordingText}>{formatTime(recordingTime)}</Text>
+          </View>
+        )}
+
+        <View style={styles.inputRow}>
+          {/* Text Input */}
+          <TextInput
+            style={styles.textInput}
+            placeholder="Type in Hausa..."
+            placeholderTextColor={isDark ? '#666' : '#999'}
+            value={inputText}
+            onChangeText={setInputText}
+            multiline
+            editable={!isLoading && !isRecording}
+          />
+
+          {/* Voice Button */}
+          <TouchableOpacity
+            style={[
+              styles.iconButton,
+              isRecording && styles.iconButtonRecording,
+              isLoading && styles.iconButtonDisabled,
+            ]}
+            onPress={isRecording ? stopRecording : startRecording}
+            disabled={isLoading}
+          >
+            <Ionicons
+              name={isRecording ? 'stop' : 'mic'}
+              size={24}
+              color="#ffffff"
+            />
+          </TouchableOpacity>
+
+          {/* Send Button */}
+          {inputText.trim().length > 0 && (
+            <TouchableOpacity
+              style={[
+                styles.iconButton,
+                isLoading && styles.iconButtonDisabled,
+              ]}
+              onPress={sendTextMessage}
+              disabled={isLoading || isRecording}
+            >
+              <Ionicons name="send" size={20} color="#ffffff" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
