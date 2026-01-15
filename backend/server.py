@@ -316,7 +316,7 @@ async def create_conversation(input: ConversationCreate):
 async def get_conversations(user_id: str):
     """Get all conversations for a user"""
     conversations = await db.conversations.find(
-        {"user_id": user_id}
+        {"user_id": user_id}, {"_id": 0}  # Exclude _id field to avoid ObjectId serialization issues
     ).sort("updated_at", -1).to_list(100)
     
     return {"success": True, "conversations": conversations}
