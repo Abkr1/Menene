@@ -326,7 +326,7 @@ async def get_conversations(user_id: str):
 async def get_messages(conversation_id: str):
     """Get all messages in a conversation"""
     messages = await db.messages.find(
-        {"conversation_id": conversation_id}
+        {"conversation_id": conversation_id}, {"_id": 0}  # Exclude _id field to avoid ObjectId serialization issues
     ).sort("timestamp", 1).to_list(1000)
     
     return {"success": True, "messages": messages}
