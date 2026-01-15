@@ -120,7 +120,7 @@ async def transcribe_audio(
         
         # Transcribe using Whisper
         with open(temp_path, 'rb') as audio_file:
-            transcription = openai_client.audio.transcriptions.create(
+            transcription = get_openai_client().audio.transcriptions.create(
                 model="whisper-1",
                 file=audio_file,
                 language="ha",  # Hausa language
