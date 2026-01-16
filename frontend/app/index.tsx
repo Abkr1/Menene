@@ -435,6 +435,14 @@ export default function MeneneApp() {
       shadowOpacity: 0.2,
       shadowRadius: 8,
     },
+    bottomInputContainer: {
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      paddingBottom: Platform.OS === 'ios' ? 30 : 12,
+      backgroundColor: isDark ? '#2d2d2d' : '#ffffff',
+      borderTopWidth: 1,
+      borderTopColor: isDark ? '#404040' : '#e0e0e0',
+    },
     recordingIndicator: {
       flexDirection: 'row',
       alignItems: 'center',
