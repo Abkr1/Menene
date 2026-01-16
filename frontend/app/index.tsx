@@ -418,6 +418,10 @@ export default function MeneneApp() {
       alignItems: 'center',
       pointerEvents: 'box-none',
     },
+    welcomeSection: {
+      alignItems: 'center',
+      marginBottom: 32,
+    },
     inputContainer: {
       width: '90%',
       maxWidth: 600,
