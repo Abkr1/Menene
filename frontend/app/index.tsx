@@ -494,7 +494,7 @@ export default function MeneneApp() {
             size={80}
             color={isDark ? '#404040' : '#ccc'}
           />
-          <Text style={styles.emptyText}>Sannu! Welcome to Menene</Text>
+          <Text style={styles.emptyText}>Barka da zuwa! Menene a ke bukata?</Text>
           <Text style={styles.emptySubtext}>
             Start a conversation by typing or using your voice
           </Text>
