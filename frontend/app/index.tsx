@@ -509,20 +509,8 @@ export default function MeneneApp() {
 
   return (
     <View style={styles.container}>
-      {/* Messages List or Welcome Screen */}
-      {messages.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Ionicons
-            name="chatbubbles-outline"
-            size={80}
-            color={isDark ? '#404040' : '#ccc'}
-          />
-          <Text style={styles.emptyText}>Barka da zuwa! Menene a ke bukata?</Text>
-          <Text style={styles.emptySubtext}>
-            Start a conversation by typing or using your voice
-          </Text>
-        </View>
-      ) : (
+      {/* Messages List */}
+      {messages.length > 0 && (
         <FlatList
           ref={flatListRef}
           data={messages}
@@ -540,8 +528,22 @@ export default function MeneneApp() {
         </View>
       )}
 
-      {/* Centered Input Container */}
+      {/* Centered Input Container with Welcome Message */}
       <View style={styles.centeredInputWrapper}>
+        {messages.length === 0 && (
+          <View style={styles.welcomeSection}>
+            <Ionicons
+              name="chatbubbles-outline"
+              size={80}
+              color={isDark ? '#404040' : '#ccc'}
+            />
+            <Text style={styles.emptyText}>Barka da zuwa! Menene a ke bukata?</Text>
+            <Text style={styles.emptySubtext}>
+              Start a conversation by typing or using your voice
+            </Text>
+          </View>
+        )}
+
         <View style={styles.inputContainer}>
           {isRecording && (
             <View style={styles.recordingIndicator}>
