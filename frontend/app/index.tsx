@@ -273,8 +273,8 @@ export default function MeneneApp() {
 
       const response = await axios.post(`${BACKEND_URL}/api/text-to-speech`, {
         text,
-        language: 'ha-NG',
-        voice: 'ha-NG-Standard-A',
+        language: 'en-US',  // Using English voice as Hausa is not supported
+        voice: 'en-US-Standard-A',  // English voice instead of ha-NG-Standard-A
       });
 
       if (response.data.success) {
