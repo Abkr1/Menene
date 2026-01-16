@@ -475,18 +475,8 @@ export default function MeneneApp() {
   });
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={0}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Menene</Text>
-        <Text style={styles.headerSubtitle}>Your Hausa AI Assistant</Text>
-      </View>
-
-      {/* Messages List */}
+    <View style={styles.container}>
+      {/* Messages List or Welcome Screen */}
       {messages.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons
@@ -517,60 +507,62 @@ export default function MeneneApp() {
         </View>
       )}
 
-      {/* Input Container */}
-      <View style={styles.inputContainer}>
-        {isRecording && (
-          <View style={styles.recordingIndicator}>
-            <View style={styles.recordingDot} />
-            <Text style={styles.recordingText}>Recording</Text>
-            <Text style={styles.recordingText}>{formatTime(recordingTime)}</Text>
-          </View>
-        )}
+      {/* Centered Input Container */}
+      <View style={styles.centeredInputWrapper}>
+        <View style={styles.inputContainer}>
+          {isRecording && (
+            <View style={styles.recordingIndicator}>
+              <View style={styles.recordingDot} />
+              <Text style={styles.recordingText}>Recording</Text>
+              <Text style={styles.recordingText}>{formatTime(recordingTime)}</Text>
+            </View>
+          )}
 
-        <View style={styles.inputRow}>
-          {/* Text Input */}
-          <TextInput
-            style={styles.textInput}
-            placeholder="Type in Hausa..."
-            placeholderTextColor={isDark ? '#666' : '#999'}
-            value={inputText}
-            onChangeText={setInputText}
-            multiline
-            editable={!isLoading && !isRecording}
-          />
-
-          {/* Voice Button */}
-          <TouchableOpacity
-            style={[
-              styles.iconButton,
-              isRecording && styles.iconButtonRecording,
-              isLoading && styles.iconButtonDisabled,
-            ]}
-            onPress={isRecording ? stopRecording : startRecording}
-            disabled={isLoading}
-          >
-            <Ionicons
-              name={isRecording ? 'stop' : 'mic'}
-              size={24}
-              color="#ffffff"
+          <View style={styles.inputRow}>
+            {/* Text Input */}
+            <TextInput
+              style={styles.textInput}
+              placeholder="Type in Hausa..."
+              placeholderTextColor={isDark ? '#666' : '#999'}
+              value={inputText}
+              onChangeText={setInputText}
+              multiline
+              editable={!isLoading && !isRecording}
             />
-          </TouchableOpacity>
 
-          {/* Send Button */}
-          {inputText.trim().length > 0 && (
+            {/* Voice Button */}
             <TouchableOpacity
               style={[
                 styles.iconButton,
+                isRecording && styles.iconButtonRecording,
                 isLoading && styles.iconButtonDisabled,
               ]}
-              onPress={sendTextMessage}
-              disabled={isLoading || isRecording}
+              onPress={isRecording ? stopRecording : startRecording}
+              disabled={isLoading}
             >
-              <Ionicons name="send" size={20} color="#ffffff" />
+              <Ionicons
+                name={isRecording ? 'stop' : 'mic'}
+                size={24}
+                color="#ffffff"
+              />
             </TouchableOpacity>
-          )}
+
+            {/* Send Button */}
+            {inputText.trim().length > 0 && (
+              <TouchableOpacity
+                style={[
+                  styles.iconButton,
+                  isLoading && styles.iconButtonDisabled,
+                ]}
+                onPress={sendTextMessage}
+                disabled={isLoading || isRecording}
+              >
+                <Ionicons name="send" size={20} color="#ffffff" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
