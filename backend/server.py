@@ -229,16 +229,20 @@ Respond naturally in Hausa language. Keep responses concise and helpful."""
 @api_router.post("/text-to-speech")
 async def text_to_speech(request: TTSRequest):
     """
-    Convert text to speech using Google Cloud TTS (Hausa)
+    Convert text to speech using Google Cloud TTS (English fallback as Hausa is not supported)
     """
     try:
         logger.info(f"TTS request for text: {request.text[:50]}...")
         
+        # Use English voice as Hausa voices are not supported by Google Cloud TTS
+        language = "en-US"
+        voice = "en-US-Standard-A"
+        
         # Check cache first
         cached_audio = await db.audio_cache.find_one({
             "text": request.text,
-            "language": request.language,
-            "voice": request.voice
+            "language": language,
+            "voice": voice
         })
         
         if cached_audio:
@@ -257,8 +261,8 @@ async def text_to_speech(request: TTSRequest):
         payload = {
             "input": {"text": request.text},
             "voice": {
-                "languageCode": request.language,
-                "name": request.voice
+                "languageCode": language,
+                "name": voice
             },
             "audioConfig": {
                 "audioEncoding": "MP3",
@@ -280,8 +284,8 @@ async def text_to_speech(request: TTSRequest):
         # Cache the audio
         await db.audio_cache.insert_one({
             "text": request.text,
-            "language": request.language,
-            "voice": request.voice,
+            "language": language,
+            "voice": voice,
             "audio_content": audio_content,
             "created_at": datetime.utcnow()
         })
