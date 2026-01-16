@@ -229,20 +229,19 @@ Respond naturally in Hausa language. Keep responses concise and helpful."""
 @api_router.post("/text-to-speech")
 async def text_to_speech(request: TTSRequest):
     """
-    Convert text to speech using Google Cloud TTS (English fallback as Hausa is not supported)
+    Convert text to speech using Meta's MMS-TTS (supports Hausa)
     """
     try:
         logger.info(f"TTS request for text: {request.text[:50]}...")
         
-        # Use English voice as Hausa voices are not supported by Google Cloud TTS
-        language = "en-US"
-        voice = "en-US-Standard-A"
+        # Use Hausa language code for Meta MMS
+        language = "ha"
         
         # Check cache first
         cached_audio = await db.audio_cache.find_one({
             "text": request.text,
             "language": language,
-            "voice": voice
+            "voice": "meta-mms"
         })
         
         if cached_audio:
@@ -253,39 +252,56 @@ async def text_to_speech(request: TTSRequest):
                 "cached": True
             }
         
-        # Use Google Cloud TTS API directly with API key
+        # Use Hugging Face Inference API for Meta MMS-TTS
         import requests
         
-        url = f"https://texttospeech.googleapis.com/v1/text:synthesize?key={os.environ.get('GOOGLE_TTS_API_KEY')}"
+        # Meta's MMS-TTS model for Hausa
+        API_URL = "https://api-inference.huggingface.co/models/facebook/mms-tts-hau"
+        headers = {"Authorization": f"Bearer {os.environ.get('EMERGENT_LLM_KEY')}"}
         
         payload = {
-            "input": {"text": request.text},
-            "voice": {
-                "languageCode": language,
-                "name": voice
-            },
-            "audioConfig": {
-                "audioEncoding": "MP3",
-                "pitch": 0,
-                "speakingRate": 1.0
-            }
+            "inputs": request.text
         }
         
-        response = requests.post(url, json=payload)
+        response = requests.post(API_URL, headers=headers, json=payload)
         
         if response.status_code != 200:
-            raise HTTPException(
-                status_code=response.status_code,
-                detail=f"TTS API error: {response.text}"
-            )
-        
-        audio_content = response.json().get("audioContent")
+            # Fallback to English if Hausa TTS fails
+            logger.warning(f"Meta MMS-TTS failed, falling back to Google TTS: {response.text}")
+            
+            google_url = f"https://texttospeech.googleapis.com/v1/text:synthesize?key={os.environ.get('GOOGLE_TTS_API_KEY')}"
+            google_payload = {
+                "input": {"text": request.text},
+                "voice": {
+                    "languageCode": "en-US",
+                    "name": "en-US-Standard-A"
+                },
+                "audioConfig": {
+                    "audioEncoding": "MP3",
+                    "pitch": 0,
+                    "speakingRate": 1.0
+                }
+            }
+            
+            google_response = requests.post(google_url, json=google_payload)
+            
+            if google_response.status_code != 200:
+                raise HTTPException(
+                    status_code=google_response.status_code,
+                    detail=f"TTS API error: {google_response.text}"
+                )
+            
+            audio_content = google_response.json().get("audioContent")
+        else:
+            # Convert audio bytes to base64
+            import base64
+            audio_content = base64.b64encode(response.content).decode('utf-8')
         
         # Cache the audio
         await db.audio_cache.insert_one({
             "text": request.text,
             "language": language,
-            "voice": voice,
+            "voice": "meta-mms",
             "audio_content": audio_content,
             "created_at": datetime.utcnow()
         })
