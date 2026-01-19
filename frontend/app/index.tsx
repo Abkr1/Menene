@@ -280,8 +280,8 @@ export default function MeneneApp() {
       if (response.data.success) {
         const audioContent = response.data.audio_content;
         
-        // Create audio from base64
-        const base64Audio = `data:audio/mp3;base64,${audioContent}`;
+        // Create audio from base64 (WAV format from Meta MMS-TTS)
+        const base64Audio = `data:audio/wav;base64,${audioContent}`;
         
         // Unload previous sound
         if (sound) {
