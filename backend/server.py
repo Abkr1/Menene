@@ -284,11 +284,10 @@ async def chat(request: ChatRequest):
             {"conversation_id": request.conversation_id}
         ).sort("timestamp", 1).to_list(100)
         
-        # Initialize Gemini chat with instruction for shorter responses
+        # Initialize Gemini chat
         system_message = f"""You are Menene, a helpful AI assistant that speaks Hausa language. 
 You are friendly, knowledgeable, and culturally aware of West African contexts, particularly Nigeria. 
-Respond naturally in Hausa language. 
-IMPORTANT: Keep your responses SHORT and CONCISE (maximum 2-3 sentences). Be helpful but brief."""
+Respond naturally in Hausa language. Provide detailed and helpful responses."""
         
         chat_session = LlmChat(
             api_key=os.environ.get('EMERGENT_LLM_KEY'),
