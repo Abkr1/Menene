@@ -578,6 +578,27 @@ export default function MeneneApp() {
     audioPlayingTextDark: {
       color: '#64b5f6',
     },
+    audioControlButtons: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    pauseAudioButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      backgroundColor: isDark ? '#1a3a5c' : '#e3f2fd',
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: '#007AFF',
+    },
+    pauseAudioText: {
+      marginLeft: 4,
+      fontSize: 14,
+      color: '#007AFF',
+      fontWeight: '600',
+    },
     stopAudioButton: {
       flexDirection: 'row',
       alignItems: 'center',
