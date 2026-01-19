@@ -18,10 +18,9 @@ import io
 # OpenAI for Whisper
 from openai import OpenAI
 
-# TWB Voice Hausa TTS (Coqui TTS)
-from TTS.api import TTS
-from huggingface_hub import hf_hub_download
-import json
+# Meta MMS-TTS using transformers (FAST!)
+from transformers import VitsModel, AutoTokenizer
+import torch
 import scipy.io.wavfile as wavfile
 import numpy as np
 
@@ -44,54 +43,25 @@ def get_openai_client():
         openai_client = OpenAI(api_key=os.environ.get('EMERGENT_LLM_KEY'))
     return openai_client
 
-# TWB Voice Hausa TTS model (lazy loading)
-twb_tts = None
-twb_temp_config = None
+# Meta MMS-TTS model for Hausa (lazy loading) - FAST!
+mms_model = None
+mms_tokenizer = None
 
-def get_twb_tts():
-    """Load TWB Voice Hausa TTS model (CLEAR-Global/TWB-Voice-Hausa-TTS-1.0)"""
-    global twb_tts, twb_temp_config
-    if twb_tts is None:
-        logger.info("Loading TWB Voice Hausa TTS model (CLEAR-Global/TWB-Voice-Hausa-TTS-1.0)...")
-        
-        # Download model files from Hugging Face
-        model_name = "CLEAR-Global/TWB-Voice-Hausa-TTS-1.0"
-        
-        config_path = hf_hub_download(model_name, "config.json")
-        with open(config_path, 'r') as f:
-            config = json.load(f)
-        
-        # Download required files
-        model_path = hf_hub_download(model_name, "best_model_498283.pth")
-        speakers_file = hf_hub_download(model_name, "speakers.pth")
-        language_ids_file = hf_hub_download(model_name, "language_ids.json")
-        d_vector_file = hf_hub_download(model_name, "d_vector.pth")
-        config_se_file = hf_hub_download(model_name, "config_se.json")
-        model_se_file = hf_hub_download(model_name, "model_se.pth")
-        
-        # Update config paths
-        config["speakers_file"] = speakers_file
-        config["language_ids_file"] = language_ids_file
-        config["d_vector_file"] = [d_vector_file]
-        config["model_args"]["speakers_file"] = speakers_file
-        config["model_args"]["language_ids_file"] = language_ids_file
-        config["model_args"]["d_vector_file"] = [d_vector_file]
-        config["model_args"]["speaker_encoder_config_path"] = config_se_file
-        config["model_args"]["speaker_encoder_model_path"] = model_se_file
-        
-        # Save updated config to temp file
-        twb_temp_config = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
-        json.dump(config, twb_temp_config, indent=2)
-        twb_temp_config.close()
-        
-        # Load TTS model
-        twb_tts = TTS(model_path=model_path, config_path=twb_temp_config.name)
-        logger.info("TWB Voice Hausa TTS model loaded successfully!")
-    
-    return twb_tts
+def get_mms_tts():
+    """Load Meta MMS-TTS model for Hausa language - Much faster than TWB Voice"""
+    global mms_model, mms_tokenizer
+    if mms_model is None or mms_tokenizer is None:
+        logger.info("Loading Meta MMS-TTS model for Hausa (facebook/mms-tts-hau)...")
+        mms_tokenizer = AutoTokenizer.from_pretrained("facebook/mms-tts-hau")
+        mms_model = VitsModel.from_pretrained("facebook/mms-tts-hau")
+        # Use CPU for inference (no GPU needed)
+        mms_model = mms_model.to("cpu")
+        mms_model.eval()
+        logger.info("Meta MMS-TTS model loaded successfully!")
+    return mms_model, mms_tokenizer
 
 # Create the main app without a prefix
-app = FastAPI(title="Menene - Hausa Conversational AI (TWB Voice TTS)")
+app = FastAPI(title="Menene - Hausa Conversational AI (Meta MMS-TTS)")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -139,7 +109,6 @@ class ChatRequest(BaseModel):
 class TTSRequest(BaseModel):
     text: str
     language: str = "ha"  # Hausa language code
-    speaker: str = "spk_f_1"  # Options: spk_f_1 (female), spk_m_1 (male), spk_m_2 (male)
 
 
 class ConversationCreate(BaseModel):
@@ -275,26 +244,22 @@ Respond naturally in Hausa language. Keep responses concise and helpful."""
         raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
 
 
-# ==================== TEXT TO SPEECH ENDPOINT (TWB Voice Hausa TTS) ====================
+# ==================== TEXT TO SPEECH ENDPOINT (META MMS-TTS - FAST!) ====================
 
 @api_router.post("/text-to-speech")
 async def text_to_speech(request: TTSRequest):
     """
-    Convert text to speech using TWB Voice Hausa TTS (CLEAR-Global/TWB-Voice-Hausa-TTS-1.0)
-    Multi-speaker model with 3 speakers: spk_f_1 (female), spk_m_1 (male), spk_m_2 (male)
+    Convert text to speech using Meta's MMS-TTS model for Hausa (FAST!)
+    Model: facebook/mms-tts-hau
     """
     try:
         logger.info(f"TTS request for text: {request.text[:50]}...")
         
-        # Validate speaker
-        valid_speakers = ["spk_f_1", "spk_m_1", "spk_m_2"]
-        speaker = request.speaker if request.speaker in valid_speakers else "spk_f_1"
-        
         # Check cache first
         cached_audio = await db.audio_cache.find_one({
-            "text": request.text.lower(),
+            "text": request.text,
             "language": "ha",
-            "voice": f"twb-voice-{speaker}"
+            "voice": "meta-mms-hau"
         })
         
         if cached_audio:
@@ -303,48 +268,57 @@ async def text_to_speech(request: TTSRequest):
                 "success": True,
                 "audio_content": cached_audio["audio_content"],
                 "cached": True,
-                "tts_engine": "twb-voice-hausa-tts",
-                "speaker": speaker
+                "tts_engine": "meta-mms-tts"
             }
         
-        # Load TWB Voice TTS model
-        tts = get_twb_tts()
+        # Load Meta MMS-TTS model
+        model, tokenizer = get_mms_tts()
         
-        # Generate speech (TWB Voice requires lowercase input)
-        text_lower = request.text.lower()
-        wav = tts.synthesizer.tts(text=text_lower, speaker_name=speaker)
+        # Tokenize input text
+        inputs = tokenizer(request.text, return_tensors="pt")
+        
+        # Generate speech
+        with torch.no_grad():
+            output = model(**inputs).waveform
         
         # Convert to numpy array
-        wav_array = np.array(wav, dtype=np.float32)
+        waveform = output.cpu().numpy().squeeze()
         
-        # Get sample rate (24 kHz for TWB Voice)
-        sample_rate = tts.synthesizer.output_sample_rate
+        # Get sample rate from model config (16kHz for MMS-TTS)
+        sample_rate = model.config.sampling_rate
+        
+        # Convert to 16-bit PCM
+        waveform_int16 = (waveform * 32767).astype(np.int16)
         
         # Save to WAV bytes
         wav_buffer = io.BytesIO()
-        wavfile.write(wav_buffer, sample_rate, wav_array)
+        wavfile.write(wav_buffer, sample_rate, waveform_int16)
         wav_bytes = wav_buffer.getvalue()
         
         # Convert to base64
         audio_content = base64.b64encode(wav_bytes).decode('utf-8')
         
-        # Cache the audio
-        await db.audio_cache.insert_one({
-            "text": text_lower,
-            "language": "ha",
-            "voice": f"twb-voice-{speaker}",
-            "audio_content": audio_content,
-            "created_at": datetime.utcnow()
-        })
-        
-        logger.info(f"TTS audio generated and cached using TWB Voice Hausa TTS (speaker: {speaker})")
+        # Only cache if audio is not too large (< 10MB)
+        if len(audio_content) < 10 * 1024 * 1024:
+            try:
+                await db.audio_cache.insert_one({
+                    "text": request.text,
+                    "language": "ha",
+                    "voice": "meta-mms-hau",
+                    "audio_content": audio_content,
+                    "created_at": datetime.utcnow()
+                })
+                logger.info("TTS audio generated and cached using Meta MMS-TTS")
+            except Exception as cache_error:
+                logger.warning(f"Failed to cache audio: {cache_error}")
+        else:
+            logger.info("TTS audio generated (too large to cache)")
         
         return {
             "success": True,
             "audio_content": audio_content,
             "cached": False,
-            "tts_engine": "twb-voice-hausa-tts",
-            "speaker": speaker,
+            "tts_engine": "meta-mms-tts",
             "sample_rate": sample_rate
         }
         
@@ -406,10 +380,9 @@ async def health_check():
             "mongodb": "connected" if client else "disconnected",
             "whisper": "configured" if os.environ.get('EMERGENT_LLM_KEY') else "not configured",
             "gemini": "configured" if os.environ.get('EMERGENT_LLM_KEY') else "not configured",
-            "tts": "twb-voice-hausa-tts (CLEAR-Global/TWB-Voice-Hausa-TTS-1.0)"
+            "tts": "meta-mms-tts (facebook/mms-tts-hau) - FAST"
         },
-        "tts_engine": "TWB Voice Hausa TTS",
-        "tts_speakers": ["spk_f_1 (female)", "spk_m_1 (male)", "spk_m_2 (male)"]
+        "tts_engine": "Meta MMS-TTS for Hausa (Fast)"
     }
 
 
