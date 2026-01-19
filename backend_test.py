@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Backend API Testing for Menene Hausa Conversational AI
-Focus: Testing Meta MMS-TTS implementation and all API endpoints
+Focus: Testing TWB Voice Hausa TTS (CLEAR-Global/TWB-Voice-Hausa-TTS-1.0) implementation
 """
 
 import requests
