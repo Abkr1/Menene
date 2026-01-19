@@ -339,9 +339,28 @@ export default function MeneneApp() {
         setSound(null);
       }
       setIsPlayingAudio(false);
+      setIsAudioPaused(false);
     } catch (error) {
       console.error('Error stopping audio:', error);
       setIsPlayingAudio(false);
+      setIsAudioPaused(false);
+    }
+  };
+
+  // Pause/Resume audio playback
+  const togglePauseAudio = async () => {
+    try {
+      if (sound) {
+        if (isAudioPaused) {
+          await sound.playAsync();
+          setIsAudioPaused(false);
+        } else {
+          await sound.pauseAsync();
+          setIsAudioPaused(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling audio pause:', error);
     }
   };
 
