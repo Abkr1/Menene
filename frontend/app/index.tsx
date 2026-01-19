@@ -365,6 +365,7 @@ export default function MeneneApp() {
     container: {
       flex: 1,
       backgroundColor: isDark ? '#1a1a1a' : '#f5f5f5',
+      paddingTop: insets.top,
     },
     messagesList: {
       flex: 1,
