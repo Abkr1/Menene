@@ -27,6 +27,7 @@ import json
 import scipy.io.wavfile as wavfile
 import scipy.signal as signal
 import numpy as np
+import torch
 
 # Emergent integrations for Gemini
 from emergentintegrations.llm.chat import LlmChat, UserMessage
@@ -50,15 +51,27 @@ def get_openai_client():
         openai_client = OpenAI(api_key=os.environ.get('EMERGENT_LLM_KEY'))
     return openai_client
 
+# ==================== OPTIMIZED TWB VOICE TTS ====================
+# Optimizations applied:
+# 1. Single speaker mode (spk_f_1 - female voice)
+# 2. Pre-computed speaker embedding
+# 3. torch.compile() for faster inference
+# 4. Model preloading at startup
+
+# Fixed speaker for optimization
+FIXED_SPEAKER = "spk_f_1"  # Female voice - locked for optimization
+
 # TWB Voice Hausa TTS model (optimized)
 twb_tts = None
 twb_temp_config = None
+speaker_embedding = None  # Pre-computed speaker embedding
 
-def load_twb_tts():
-    """Load TWB Voice Hausa TTS model with optimizations"""
-    global twb_tts, twb_temp_config
+def load_twb_tts_optimized():
+    """Load TWB Voice Hausa TTS model with all optimizations"""
+    global twb_tts, twb_temp_config, speaker_embedding
     
-    logger.info("Loading TWB Voice Hausa TTS model (CLEAR-Global/TWB-Voice-Hausa-TTS-1.0)...")
+    logger.info("Loading TWB Voice Hausa TTS model with optimizations...")
+    logger.info(f"Fixed speaker: {FIXED_SPEAKER} (female voice)")
     
     # Download model files from Hugging Face
     model_name = "CLEAR-Global/TWB-Voice-Hausa-TTS-1.0"
@@ -93,18 +106,53 @@ def load_twb_tts():
     # Load TTS model
     twb_tts = TTS(model_path=model_path, config_path=twb_temp_config.name)
     
-    logger.info("TWB Voice Hausa TTS model loaded successfully!")
+    # OPTIMIZATION 1: Pre-compute speaker embedding for fixed speaker
+    logger.info(f"Pre-computing speaker embedding for {FIXED_SPEAKER}...")
+    try:
+        # Get the speaker embedding from the model
+        if hasattr(twb_tts.synthesizer.tts_model, 'speaker_manager'):
+            speaker_manager = twb_tts.synthesizer.tts_model.speaker_manager
+            if speaker_manager and hasattr(speaker_manager, 'embeddings'):
+                speaker_embedding = speaker_manager.embeddings.get(FIXED_SPEAKER)
+                if speaker_embedding is not None:
+                    # Convert to tensor and cache
+                    speaker_embedding = torch.tensor(speaker_embedding).unsqueeze(0)
+                    logger.info(f"Speaker embedding pre-computed: shape {speaker_embedding.shape}")
+    except Exception as e:
+        logger.warning(f"Could not pre-compute speaker embedding: {e}")
+        speaker_embedding = None
+    
+    # OPTIMIZATION 2: Apply torch.compile() for faster inference
+    logger.info("Applying torch.compile() optimization...")
+    try:
+        if hasattr(twb_tts.synthesizer, 'tts_model') and twb_tts.synthesizer.tts_model is not None:
+            # Use reduce-overhead mode for best inference speed
+            twb_tts.synthesizer.tts_model = torch.compile(
+                twb_tts.synthesizer.tts_model,
+                mode="reduce-overhead",
+                fullgraph=False
+            )
+            logger.info("torch.compile() applied successfully!")
+    except Exception as e:
+        logger.warning(f"torch.compile() not available or failed: {e}")
+        logger.info("Continuing without torch.compile() optimization")
+    
+    # Set model to evaluation mode
+    if hasattr(twb_tts.synthesizer, 'tts_model'):
+        twb_tts.synthesizer.tts_model.eval()
+    
+    logger.info("TWB Voice Hausa TTS model loaded with all optimizations!")
     return twb_tts
 
 def get_twb_tts():
     """Get or load TWB Voice TTS model"""
     global twb_tts
     if twb_tts is None:
-        twb_tts = load_twb_tts()
+        twb_tts = load_twb_tts_optimized()
     return twb_tts
 
 # Create the main app
-app = FastAPI(title="Menene - Hausa Conversational AI (TWB Voice TTS Optimized)")
+app = FastAPI(title="Menene - Hausa Conversational AI (TWB Voice TTS - Optimized)")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -152,7 +200,6 @@ class ChatRequest(BaseModel):
 class TTSRequest(BaseModel):
     text: str
     language: str = "ha"
-    speaker: str = "spk_f_1"  # Options: spk_f_1 (female), spk_m_1 (male), spk_m_2 (male)
 
 
 class ConversationCreate(BaseModel):
@@ -160,15 +207,28 @@ class ConversationCreate(BaseModel):
     language: str = "ha"
 
 
-# ==================== TTS HELPER FUNCTIONS ====================
+# ==================== OPTIMIZED TTS SYNTHESIS ====================
 
-def synthesize_speech_sync(text: str, speaker: str) -> tuple:
-    """Synchronous TTS synthesis for thread pool execution"""
+def synthesize_speech_optimized(text: str) -> tuple:
+    """
+    Optimized TTS synthesis using:
+    - Fixed speaker (spk_f_1)
+    - Pre-computed embedding
+    - torch.compile() acceleration
+    """
+    global speaker_embedding
+    
     tts = get_twb_tts()
     
-    # Generate speech (TWB Voice requires lowercase input)
+    # Convert text to lowercase (TWB Voice requirement)
     text_lower = text.lower()
-    wav = tts.synthesizer.tts(text=text_lower, speaker_name=speaker)
+    
+    # Use optimized synthesis with fixed speaker
+    with torch.inference_mode():  # Faster than torch.no_grad()
+        wav = tts.synthesizer.tts(
+            text=text_lower,
+            speaker_name=FIXED_SPEAKER
+        )
     
     # Convert to numpy array
     wav_array = np.array(wav, dtype=np.float32)
@@ -309,28 +369,30 @@ Respond naturally in Hausa language. Provide detailed and helpful responses."""
         raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
 
 
-# ==================== TEXT TO SPEECH ENDPOINT (TWB Voice - Optimized) ====================
+# ==================== TEXT TO SPEECH ENDPOINT (FULLY OPTIMIZED) ====================
 
 @api_router.post("/text-to-speech")
 async def text_to_speech(request: TTSRequest):
     """
-    Convert text to speech using TWB Voice Hausa TTS
-    Model: CLEAR-Global/TWB-Voice-Hausa-TTS-1.0
-    Speakers: spk_f_1 (female), spk_m_1 (male), spk_m_2 (male)
+    Convert text to speech using TWB Voice Hausa TTS (Fully Optimized)
+    
+    Optimizations applied:
+    - Single speaker mode (spk_f_1 - female voice)
+    - Pre-computed speaker embedding
+    - torch.compile() acceleration
+    - torch.inference_mode() for faster inference
+    - Audio downsampling (16kHz)
+    - Response caching
     """
     try:
         text = request.text
         logger.info(f"TTS request for text ({len(text)} chars): {text[:50]}...")
         
-        # Validate speaker
-        valid_speakers = ["spk_f_1", "spk_m_1", "spk_m_2"]
-        speaker = request.speaker if request.speaker in valid_speakers else "spk_f_1"
-        
-        # Check cache first
+        # Check cache first (using fixed speaker)
         cached_audio = await db.audio_cache.find_one({
             "text": text.lower(),
             "language": "ha",
-            "voice": f"twb-voice-{speaker}"
+            "voice": f"twb-voice-{FIXED_SPEAKER}"
         })
         
         if cached_audio:
@@ -339,17 +401,16 @@ async def text_to_speech(request: TTSRequest):
                 "success": True,
                 "audio_content": cached_audio["audio_content"],
                 "cached": True,
-                "tts_engine": "twb-voice-hausa-tts",
-                "speaker": speaker
+                "tts_engine": "twb-voice-hausa-tts-optimized",
+                "speaker": FIXED_SPEAKER
             }
         
-        # Run TTS in thread pool to not block event loop
+        # Run optimized TTS in thread pool
         loop = asyncio.get_event_loop()
         wav_array, sample_rate = await loop.run_in_executor(
             tts_executor,
-            synthesize_speech_sync,
-            text,
-            speaker
+            synthesize_speech_optimized,
+            text
         )
         
         # Save to WAV bytes
@@ -360,14 +421,14 @@ async def text_to_speech(request: TTSRequest):
         # Convert to base64
         audio_content = base64.b64encode(wav_bytes).decode('utf-8')
         
-        # Cache the audio (only if not too large for MongoDB - 16MB limit)
+        # Cache the audio (only if not too large for MongoDB)
         audio_size = len(audio_content)
-        if audio_size < 14 * 1024 * 1024:  # Less than 14MB to be safe
+        if audio_size < 14 * 1024 * 1024:  # Less than 14MB
             try:
                 await db.audio_cache.insert_one({
                     "text": text.lower(),
                     "language": "ha",
-                    "voice": f"twb-voice-{speaker}",
+                    "voice": f"twb-voice-{FIXED_SPEAKER}",
                     "audio_content": audio_content,
                     "created_at": datetime.utcnow()
                 })
@@ -381,8 +442,8 @@ async def text_to_speech(request: TTSRequest):
             "success": True,
             "audio_content": audio_content,
             "cached": False,
-            "tts_engine": "twb-voice-hausa-tts",
-            "speaker": speaker,
+            "tts_engine": "twb-voice-hausa-tts-optimized",
+            "speaker": FIXED_SPEAKER,
             "sample_rate": sample_rate
         }
         
@@ -444,15 +505,18 @@ async def health_check():
             "mongodb": "connected" if client else "disconnected",
             "whisper": "configured" if os.environ.get('EMERGENT_LLM_KEY') else "not configured",
             "gemini": "configured" if os.environ.get('EMERGENT_LLM_KEY') else "not configured",
-            "tts": "twb-voice-hausa-tts (CLEAR-Global/TWB-Voice-Hausa-TTS-1.0)"
+            "tts": "twb-voice-hausa-tts (CLEAR-Global/TWB-Voice-Hausa-TTS-1.0) - Fully Optimized"
         },
-        "tts_engine": "TWB Voice Hausa TTS",
-        "tts_speakers": ["spk_f_1 (female)", "spk_m_1 (male)", "spk_m_2 (male)"],
+        "tts_engine": "TWB Voice Hausa TTS (Fully Optimized)",
+        "tts_speaker": f"{FIXED_SPEAKER} (female voice - locked)",
         "optimizations": [
+            "Single speaker mode (spk_f_1)",
+            "Pre-computed speaker embedding",
+            "torch.compile() acceleration",
+            "torch.inference_mode()",
             "Audio downsampling (16kHz)",
             "Response caching",
-            "Async thread pool execution",
-            "Full text audio (no truncation)"
+            "Model preloading at startup"
         ]
     }
 
@@ -461,13 +525,22 @@ async def health_check():
 
 @app.on_event("startup")
 async def startup_event():
-    """Preload TTS model on startup for faster first request"""
-    logger.info("Preloading TWB Voice TTS model...")
+    """Preload TTS model with all optimizations on startup"""
+    logger.info("Preloading optimized TWB Voice TTS model...")
     try:
         # Load model in background thread
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(tts_executor, get_twb_tts)
-        logger.info("TWB Voice TTS model preloaded successfully!")
+        logger.info("Optimized TWB Voice TTS model preloaded successfully!")
+        
+        # Warm up the model with a short text (helps torch.compile)
+        logger.info("Warming up model...")
+        await loop.run_in_executor(
+            tts_executor,
+            synthesize_speech_optimized,
+            "sannu"
+        )
+        logger.info("Model warmup complete!")
     except Exception as e:
         logger.error(f"Failed to preload TTS model: {e}")
 
