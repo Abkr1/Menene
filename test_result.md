@@ -111,7 +111,7 @@ backend:
     file: "server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: true
           agent: "testing"
@@ -119,6 +119,9 @@ backend:
         - working: "NA"
           agent: "main"
           comment: "Updated to reflect Meta MMS-TTS instead of Google TTS. Needs retesting."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED: Health check now correctly shows Meta MMS-TTS configuration. Services show 'tts: meta-mms-tts (facebook/mms-tts-hau)' and tts_engine: 'Meta MMS-TTS for Hausa'. All services healthy."
 
   - task: "Create Conversation API"
     implemented: true
