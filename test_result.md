@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Test the Menene backend API endpoints for the Hausa Conversational AI application"
+user_problem_statement: "Test the Menene backend API endpoints for the Hausa Conversational AI application - NOW USING META MMS-TTS for native Hausa support"
 
 backend:
   - task: "Health Check API"
@@ -111,11 +111,14 @@ backend:
     file: "server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
         - working: true
           agent: "testing"
           comment: "Health check endpoint working correctly. All services (mongodb, whisper, gemini, tts) are properly configured and connected."
+        - working: "NA"
+          agent: "main"
+          comment: "Updated to reflect Meta MMS-TTS instead of Google TTS. Needs retesting."
 
   - task: "Create Conversation API"
     implemented: true
@@ -141,13 +144,13 @@ backend:
           agent: "testing"
           comment: "Chat endpoint working correctly. Gemini AI integration functional, responds appropriately in Hausa to user messages. AI responses are contextually appropriate."
 
-  - task: "Text-to-Speech API"
+  - task: "Text-to-Speech API (Meta MMS-TTS)"
     implemented: true
     working: true
     file: "server.py"
-    stuck_count: 1
+    stuck_count: 0
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
         - working: false
           agent: "testing"
@@ -155,6 +158,9 @@ backend:
         - working: true
           agent: "testing"
           comment: "Fixed by using supported English voice (en-US-Standard-A). TTS API working correctly with proper audio generation and caching functionality. NOTE: Hausa TTS not available in Google Cloud TTS."
+        - working: true
+          agent: "main"
+          comment: "MAJOR UPDATE: Replaced Google TTS with Meta MMS-TTS (facebook/mms-tts-hau). Now supports native Hausa TTS! Model loaded locally using transformers library. Returns WAV audio in base64 format. Tested manually - working correctly."
 
   - task: "Get Conversations API"
     implemented: true
