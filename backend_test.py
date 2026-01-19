@@ -83,7 +83,7 @@ class MeneneAPITester:
         """Test 2: Create Conversation API"""
         try:
             payload = {
-                "user_id": self.test_user_id,
+                "user_id": "test-user-twb",  # Use the specific user_id from review request
                 "language": "ha"
             }
             
@@ -105,8 +105,8 @@ class MeneneAPITester:
                     return False
                 
                 # Validate field values
-                if data["user_id"] != self.test_user_id:
-                    self.log_result("Create Conversation", False, f"User ID mismatch. Expected: {self.test_user_id}, Got: {data['user_id']}", data)
+                if data["user_id"] != "test-user-twb":
+                    self.log_result("Create Conversation", False, f"User ID mismatch. Expected: test-user-twb, Got: {data['user_id']}", data)
                     return False
                 
                 if data["language"] != "ha":
