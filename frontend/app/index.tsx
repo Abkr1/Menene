@@ -53,6 +53,7 @@ export default function MeneneApp() {
   const [userId] = useState('user-' + Date.now());
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [isAudioPaused, setIsAudioPaused] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   
   const flatListRef = useRef<FlatList>(null);
