@@ -110,6 +110,9 @@ export default function MeneneApp() {
         playThroughEarpieceAndroid: false,
       });
 
+      // Load conversation history
+      await loadConversationHistory();
+
       // Create or load conversation
       await createConversation();
     } catch (error) {
