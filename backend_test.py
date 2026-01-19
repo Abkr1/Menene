@@ -320,18 +320,17 @@ class MeneneAPITester:
         """Run all backend API tests"""
         print("=" * 80)
         print("MENENE HAUSA CONVERSATIONAL AI - BACKEND API TESTING")
-        print("Focus: Meta MMS-TTS Implementation Verification")
+        print("Focus: TWB Voice Hausa TTS (CLEAR-Global/TWB-Voice-Hausa-TTS-1.0) Implementation")
         print(f"Base URL: {self.base_url}")
         print("=" * 80)
         print()
         
-        # Test sequence
+        # Test sequence - only the 4 endpoints specified in review request
         tests = [
-            ("Health Check (Meta MMS-TTS)", self.test_health_check),
+            ("Health Check (TWB Voice Hausa TTS)", self.test_health_check),
             ("Create Conversation", self.test_create_conversation),
-            ("Text-to-Speech (Meta MMS-TTS)", self.test_text_to_speech),
-            ("Get Conversations", self.test_get_conversations),
-            ("Get Messages", self.test_get_messages)
+            ("Text-to-Speech (TWB Voice Hausa TTS)", self.test_text_to_speech),
+            ("Get Conversations", self.test_get_conversations)
         ]
         
         passed = 0
