@@ -622,9 +622,12 @@ export default function MeneneApp() {
             data={messages}
             renderItem={renderMessage}
             keyExtractor={(item) => item.id}
+            style={{ flex: 1 }}
             contentContainerStyle={styles.messagesList}
-            onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
+            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+            onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
             keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={true}
           />
 
           {/* Loading Indicator */}
