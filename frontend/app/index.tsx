@@ -464,6 +464,162 @@ export default function MeneneApp() {
       backgroundColor: isDark ? '#1a1a1a' : '#f5f5f5',
       paddingTop: insets.top,
     },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      backgroundColor: isDark ? '#1a1a1a' : '#f5f5f5',
+      borderBottomWidth: 1,
+      borderBottomColor: isDark ? '#333' : '#e0e0e0',
+    },
+    menuButton: {
+      padding: 4,
+    },
+    headerTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: '#000',
+    },
+    headerTitleDark: {
+      color: '#fff',
+    },
+    headerRight: {
+      width: 36,
+    },
+    sidebarOverlay: {
+      flex: 1,
+      flexDirection: 'row',
+    },
+    sidebarBackdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    sidebar: {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      bottom: 0,
+      width: Dimensions.get('window').width * 0.8,
+      maxWidth: 320,
+      backgroundColor: '#fff',
+      paddingTop: insets.top + 10,
+      paddingBottom: insets.bottom,
+    },
+    sidebarDark: {
+      backgroundColor: '#1a1a1a',
+    },
+    sidebarHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingBottom: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: isDark ? '#333' : '#e0e0e0',
+    },
+    sidebarTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: '#000',
+    },
+    sidebarTitleDark: {
+      color: '#fff',
+    },
+    newChatButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 16,
+      marginHorizontal: 12,
+      marginTop: 12,
+      backgroundColor: isDark ? '#0A84FF20' : '#007AFF10',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: '#007AFF',
+    },
+    newChatText: {
+      marginLeft: 12,
+      fontSize: 16,
+      fontWeight: '600',
+      color: '#007AFF',
+    },
+    menuOptions: {
+      marginTop: 16,
+      paddingHorizontal: 12,
+    },
+    menuOption: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 14,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+    },
+    menuOptionText: {
+      marginLeft: 12,
+      fontSize: 16,
+      color: '#333',
+    },
+    menuOptionTextDark: {
+      color: '#ccc',
+    },
+    chatHistorySection: {
+      flex: 1,
+      marginTop: 24,
+      paddingHorizontal: 12,
+      borderTopWidth: 1,
+      borderTopColor: isDark ? '#333' : '#e0e0e0',
+      paddingTop: 16,
+    },
+    chatHistoryTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: '#666',
+      marginBottom: 12,
+      paddingHorizontal: 4,
+    },
+    chatHistoryTitleDark: {
+      color: '#888',
+    },
+    chatHistoryList: {
+      flex: 1,
+    },
+    chatHistoryItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      marginBottom: 4,
+    },
+    chatHistoryItemDark: {
+      backgroundColor: 'transparent',
+    },
+    chatHistoryItemActive: {
+      backgroundColor: isDark ? '#0A84FF20' : '#007AFF10',
+    },
+    chatHistoryItemText: {
+      marginLeft: 10,
+      fontSize: 15,
+      color: '#333',
+      flex: 1,
+    },
+    chatHistoryItemTextDark: {
+      color: '#ccc',
+    },
+    chatHistoryItemTextActive: {
+      color: '#007AFF',
+      fontWeight: '500',
+    },
+    noChatText: {
+      fontSize: 14,
+      color: '#999',
+      textAlign: 'center',
+      paddingVertical: 20,
+    },
+    noChatTextDark: {
+      color: '#666',
+    },
     messagesList: {
       flexGrow: 1,
       paddingHorizontal: 16,
