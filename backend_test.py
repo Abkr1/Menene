@@ -12,7 +12,7 @@ import sys
 import os
 
 # Get backend URL from frontend env
-BACKEND_URL = "https://hausa-assistant.preview.emergentagent.com"
+BACKEND_URL = "https://meta-tts-clone.preview.emergentagent.com"
 API_BASE = f"{BACKEND_URL}/api"
 
 class MeneneAPITester:
