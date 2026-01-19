@@ -48,7 +48,8 @@ openai_client = None
 def get_openai_client():
     global openai_client
     if openai_client is None:
-        openai_client = OpenAI(api_key=os.environ.get('EMERGENT_LLM_KEY'))
+        # Use dedicated OpenAI API key for Whisper transcription
+        openai_client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
     return openai_client
 
 # ==================== OPTIMIZED TWB VOICE TTS ====================
