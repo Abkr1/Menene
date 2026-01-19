@@ -701,6 +701,107 @@ export default function MeneneApp() {
 
   return (
     <View style={styles.container}>
+      {/* Header with Menu Button */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.menuButton}
+          onPress={() => setSidebarVisible(true)}
+        >
+          <Ionicons name="menu" size={28} color={isDark ? '#fff' : '#000'} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, isDark && styles.headerTitleDark]}>Menene</Text>
+        <View style={styles.headerRight} />
+      </View>
+
+      {/* Sidebar Modal */}
+      <Modal
+        visible={sidebarVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setSidebarVisible(false)}
+      >
+        <View style={styles.sidebarOverlay}>
+          <TouchableOpacity 
+            style={styles.sidebarBackdrop} 
+            activeOpacity={1}
+            onPress={() => setSidebarVisible(false)}
+          />
+          <View style={[styles.sidebar, isDark && styles.sidebarDark]}>
+            {/* Sidebar Header */}
+            <View style={styles.sidebarHeader}>
+              <Text style={[styles.sidebarTitle, isDark && styles.sidebarTitleDark]}>Menu</Text>
+              <TouchableOpacity onPress={() => setSidebarVisible(false)}>
+                <Ionicons name="close" size={28} color={isDark ? '#fff' : '#000'} />
+              </TouchableOpacity>
+            </View>
+
+            {/* New Chat Button */}
+            <TouchableOpacity style={styles.newChatButton} onPress={startNewChat}>
+              <Ionicons name="add-circle-outline" size={24} color="#007AFF" />
+              <Text style={styles.newChatText}>New Chat</Text>
+            </TouchableOpacity>
+
+            {/* Menu Options */}
+            <View style={styles.menuOptions}>
+              <TouchableOpacity style={styles.menuOption}>
+                <Ionicons name="person-outline" size={22} color={isDark ? '#aaa' : '#666'} />
+                <Text style={[styles.menuOptionText, isDark && styles.menuOptionTextDark]}>Account</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.menuOption}>
+                <Ionicons name="information-circle-outline" size={22} color={isDark ? '#aaa' : '#666'} />
+                <Text style={[styles.menuOptionText, isDark && styles.menuOptionTextDark]}>About</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.menuOption}>
+                <Ionicons name="settings-outline" size={22} color={isDark ? '#aaa' : '#666'} />
+                <Text style={[styles.menuOptionText, isDark && styles.menuOptionTextDark]}>Settings</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Chat History */}
+            <View style={styles.chatHistorySection}>
+              <Text style={[styles.chatHistoryTitle, isDark && styles.chatHistoryTitleDark]}>
+                Chat History
+              </Text>
+              <ScrollView style={styles.chatHistoryList} showsVerticalScrollIndicator={false}>
+                {conversationHistory.length === 0 ? (
+                  <Text style={[styles.noChatText, isDark && styles.noChatTextDark]}>
+                    No previous chats
+                  </Text>
+                ) : (
+                  conversationHistory.map((conv) => (
+                    <TouchableOpacity
+                      key={conv.id}
+                      style={[
+                        styles.chatHistoryItem,
+                        currentConversation?.id === conv.id && styles.chatHistoryItemActive,
+                        isDark && styles.chatHistoryItemDark,
+                      ]}
+                      onPress={() => loadConversation(conv)}
+                    >
+                      <Ionicons 
+                        name="chatbubble-outline" 
+                        size={18} 
+                        color={currentConversation?.id === conv.id ? '#007AFF' : (isDark ? '#aaa' : '#666')} 
+                      />
+                      <Text 
+                        style={[
+                          styles.chatHistoryItemText,
+                          currentConversation?.id === conv.id && styles.chatHistoryItemTextActive,
+                          isDark && styles.chatHistoryItemTextDark,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {conv.title || 'New Conversation'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))
+                )}
+              </ScrollView>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {messages.length === 0 ? (
         /* Empty state - centered welcome and input */
         <View style={styles.centeredInputWrapper}>
