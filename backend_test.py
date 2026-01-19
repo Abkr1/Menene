@@ -359,7 +359,7 @@ if __name__ == "__main__":
     success = tester.run_all_tests()
     
     if success:
-        print("\n🎉 All backend API tests passed!")
+        print("\n🎉 All TWB Voice Hausa TTS backend API tests passed!")
     else:
         print("\n⚠️  Some tests failed. Check details above.")
         exit(1)
