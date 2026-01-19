@@ -40,6 +40,7 @@ interface Conversation {
 export default function MeneneApp() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const insets = useSafeAreaInsets();
   
   // State
   const [messages, setMessages] = useState<Message[]>([]);
@@ -52,6 +53,7 @@ export default function MeneneApp() {
   const [userId] = useState('user-' + Date.now());
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   
   const flatListRef = useRef<FlatList>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
