@@ -304,6 +304,7 @@ export default function MeneneApp() {
   const sendTextMessage = async () => {
     if (!inputText.trim() || !currentConversation) return;
 
+    const isFirstMessage = messages.length === 0;
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -314,6 +315,11 @@ export default function MeneneApp() {
     setMessages((prev) => [...prev, userMessage]);
     const messageText = inputText;
     setInputText('');
+
+    // Auto-name conversation on first message
+    if (isFirstMessage) {
+      await autoNameConversation(currentConversation.id, messageText);
+    }
 
     await getAIResponse(messageText);
   };
