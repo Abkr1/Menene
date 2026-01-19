@@ -58,6 +58,8 @@ export default function MeneneApp() {
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isAudioPaused, setIsAudioPaused] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [sidebarVisible, setSidebarVisible] = useState(false);
+  const [conversationHistory, setConversationHistory] = useState<Conversation[]>([]);
   
   const flatListRef = useRef<FlatList>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
