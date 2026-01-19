@@ -444,16 +444,15 @@ async def health_check():
             "mongodb": "connected" if client else "disconnected",
             "whisper": "configured" if os.environ.get('EMERGENT_LLM_KEY') else "not configured",
             "gemini": "configured" if os.environ.get('EMERGENT_LLM_KEY') else "not configured",
-            "tts": "twb-voice-hausa-tts (CLEAR-Global/TWB-Voice-Hausa-TTS-1.0) - Optimized"
+            "tts": "twb-voice-hausa-tts (CLEAR-Global/TWB-Voice-Hausa-TTS-1.0)"
         },
-        "tts_engine": "TWB Voice Hausa TTS (Optimized)",
+        "tts_engine": "TWB Voice Hausa TTS",
         "tts_speakers": ["spk_f_1 (female)", "spk_m_1 (male)", "spk_m_2 (male)"],
         "optimizations": [
-            "Text truncation (max 150 chars)",
             "Audio downsampling (16kHz)",
             "Response caching",
             "Async thread pool execution",
-            "Shorter AI responses"
+            "Full text audio (no truncation)"
         ]
     }
 
