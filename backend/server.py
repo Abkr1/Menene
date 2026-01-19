@@ -13,12 +13,16 @@ from datetime import datetime
 import base64
 import aiofiles
 import tempfile
+import io
 
 # OpenAI for Whisper
 from openai import OpenAI
 
-# Google Cloud TTS
-from google.cloud import texttospeech
+# Meta MMS-TTS using transformers
+from transformers import VitsModel, AutoTokenizer
+import torch
+import scipy.io.wavfile
+import numpy as np
 
 # Emergent integrations for Gemini
 from emergentintegrations.llm.chat import LlmChat, UserMessage
@@ -39,8 +43,25 @@ def get_openai_client():
         openai_client = OpenAI(api_key=os.environ.get('EMERGENT_LLM_KEY'))
     return openai_client
 
+# Meta MMS-TTS model for Hausa (lazy loading)
+mms_model = None
+mms_tokenizer = None
+
+def get_mms_tts():
+    """Load Meta MMS-TTS model for Hausa language"""
+    global mms_model, mms_tokenizer
+    if mms_model is None or mms_tokenizer is None:
+        logger.info("Loading Meta MMS-TTS model for Hausa (facebook/mms-tts-hau)...")
+        mms_tokenizer = AutoTokenizer.from_pretrained("facebook/mms-tts-hau")
+        mms_model = VitsModel.from_pretrained("facebook/mms-tts-hau")
+        # Use CPU for inference (no GPU needed)
+        mms_model = mms_model.to("cpu")
+        mms_model.eval()
+        logger.info("Meta MMS-TTS model loaded successfully!")
+    return mms_model, mms_tokenizer
+
 # Create the main app without a prefix
-app = FastAPI(title="Menene - Hausa Conversational AI")
+app = FastAPI(title="Menene - Hausa Conversational AI (Meta MMS-TTS)")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -87,8 +108,7 @@ class ChatRequest(BaseModel):
 
 class TTSRequest(BaseModel):
     text: str
-    language: str = "ha-NG"
-    voice: str = "ha-NG-Standard-A"
+    language: str = "ha"  # Hausa language code
 
 
 class ConversationCreate(BaseModel):
@@ -224,24 +244,22 @@ Respond naturally in Hausa language. Keep responses concise and helpful."""
         raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
 
 
-# ==================== TEXT TO SPEECH ENDPOINT ====================
+# ==================== TEXT TO SPEECH ENDPOINT (META MMS-TTS) ====================
 
 @api_router.post("/text-to-speech")
 async def text_to_speech(request: TTSRequest):
     """
-    Convert text to speech using Meta's MMS-TTS (supports Hausa)
+    Convert text to speech using Meta's MMS-TTS model for Hausa
+    Model: facebook/mms-tts-hau
     """
     try:
         logger.info(f"TTS request for text: {request.text[:50]}...")
         
-        # Use Hausa language code for Meta MMS
-        language = "ha"
-        
         # Check cache first
         cached_audio = await db.audio_cache.find_one({
             "text": request.text,
-            "language": language,
-            "voice": "meta-mms"
+            "language": "ha",
+            "voice": "meta-mms-hau"
         })
         
         if cached_audio:
@@ -249,69 +267,54 @@ async def text_to_speech(request: TTSRequest):
             return {
                 "success": True,
                 "audio_content": cached_audio["audio_content"],
-                "cached": True
+                "cached": True,
+                "tts_engine": "meta-mms-tts"
             }
         
-        # Use Hugging Face Inference API for Meta MMS-TTS
-        import requests
+        # Load Meta MMS-TTS model
+        model, tokenizer = get_mms_tts()
         
-        # Meta's MMS-TTS model for Hausa
-        API_URL = "https://api-inference.huggingface.co/models/facebook/mms-tts-hau"
-        headers = {"Authorization": f"Bearer {os.environ.get('EMERGENT_LLM_KEY')}"}
+        # Tokenize input text
+        inputs = tokenizer(request.text, return_tensors="pt")
         
-        payload = {
-            "inputs": request.text
-        }
+        # Generate speech
+        with torch.no_grad():
+            output = model(**inputs).waveform
         
-        response = requests.post(API_URL, headers=headers, json=payload)
+        # Convert to numpy array
+        waveform = output.cpu().numpy().squeeze()
         
-        if response.status_code != 200:
-            # Fallback to English if Hausa TTS fails
-            logger.warning(f"Meta MMS-TTS failed, falling back to Google TTS: {response.text}")
-            
-            google_url = f"https://texttospeech.googleapis.com/v1/text:synthesize?key={os.environ.get('GOOGLE_TTS_API_KEY')}"
-            google_payload = {
-                "input": {"text": request.text},
-                "voice": {
-                    "languageCode": "en-US",
-                    "name": "en-US-Standard-A"
-                },
-                "audioConfig": {
-                    "audioEncoding": "MP3",
-                    "pitch": 0,
-                    "speakingRate": 1.0
-                }
-            }
-            
-            google_response = requests.post(google_url, json=google_payload)
-            
-            if google_response.status_code != 200:
-                raise HTTPException(
-                    status_code=google_response.status_code,
-                    detail=f"TTS API error: {google_response.text}"
-                )
-            
-            audio_content = google_response.json().get("audioContent")
-        else:
-            # Convert audio bytes to base64
-            import base64
-            audio_content = base64.b64encode(response.content).decode('utf-8')
+        # Get sample rate from model config (16kHz for MMS-TTS)
+        sample_rate = model.config.sampling_rate
+        
+        # Convert to 16-bit PCM
+        waveform_int16 = (waveform * 32767).astype(np.int16)
+        
+        # Save to WAV bytes
+        wav_buffer = io.BytesIO()
+        scipy.io.wavfile.write(wav_buffer, sample_rate, waveform_int16)
+        wav_bytes = wav_buffer.getvalue()
+        
+        # Convert to base64
+        audio_content = base64.b64encode(wav_bytes).decode('utf-8')
         
         # Cache the audio
         await db.audio_cache.insert_one({
             "text": request.text,
-            "language": language,
-            "voice": "meta-mms",
+            "language": "ha",
+            "voice": "meta-mms-hau",
             "audio_content": audio_content,
             "created_at": datetime.utcnow()
         })
         
-        logger.info("TTS audio generated and cached")
+        logger.info("TTS audio generated and cached using Meta MMS-TTS")
         
         return {
             "success": True,
             "audio_content": audio_content,
-            "cached": False
+            "cached": False,
+            "tts_engine": "meta-mms-tts",
+            "sample_rate": sample_rate
         }
         
     except Exception as e:
@@ -372,8 +375,9 @@ async def health_check():
             "mongodb": "connected" if client else "disconnected",
             "whisper": "configured" if os.environ.get('EMERGENT_LLM_KEY') else "not configured",
             "gemini": "configured" if os.environ.get('EMERGENT_LLM_KEY') else "not configured",
-            "tts": "configured" if os.environ.get('GOOGLE_TTS_API_KEY') else "not configured"
-        }
+            "tts": "meta-mms-tts (facebook/mms-tts-hau)"
+        },
+        "tts_engine": "Meta MMS-TTS for Hausa"
     }
 
 
