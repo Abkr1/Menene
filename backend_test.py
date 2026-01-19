@@ -38,7 +38,7 @@ class MeneneAPITester:
         print()
 
     def test_health_check(self):
-        """Test 1: Health Check API - Verify Meta MMS-TTS is configured"""
+        """Test 1: Health Check API - Verify TWB Voice Hausa TTS is configured"""
         try:
             response = self.session.get(f"{self.base_url}/health", timeout=10)
             
@@ -50,21 +50,26 @@ class MeneneAPITester:
                     self.log_result("Health Check", False, f"Status not healthy: {data.get('status')}", data)
                     return False
                 
-                # Check if Meta MMS-TTS is configured
-                services = data.get("services", {})
-                tts_service = services.get("tts", "")
-                
-                if "meta-mms-tts" not in tts_service.lower():
-                    self.log_result("Health Check", False, f"Meta MMS-TTS not found in services. Got: {tts_service}", data)
-                    return False
-                
-                # Check tts_engine field
+                # Check tts_engine field - should be "TWB Voice Hausa TTS"
                 tts_engine = data.get("tts_engine", "")
-                if "meta" not in tts_engine.lower() or "mms" not in tts_engine.lower():
-                    self.log_result("Health Check", False, f"TTS engine not Meta MMS-TTS. Got: {tts_engine}", data)
+                if tts_engine != "TWB Voice Hausa TTS":
+                    self.log_result("Health Check", False, f"TTS engine not TWB Voice Hausa TTS. Got: {tts_engine}", data)
                     return False
                 
-                self.log_result("Health Check", True, f"All services healthy, Meta MMS-TTS configured. TTS Engine: {tts_engine}")
+                # Check tts_speakers - should have 3 speakers
+                tts_speakers = data.get("tts_speakers", [])
+                expected_speakers = ["spk_f_1 (female)", "spk_m_1 (male)", "spk_m_2 (male)"]
+                
+                if len(tts_speakers) != 3:
+                    self.log_result("Health Check", False, f"Expected 3 speakers, got {len(tts_speakers)}: {tts_speakers}", data)
+                    return False
+                
+                for speaker in expected_speakers:
+                    if speaker not in tts_speakers:
+                        self.log_result("Health Check", False, f"Missing speaker: {speaker}. Got: {tts_speakers}", data)
+                        return False
+                
+                self.log_result("Health Check", True, f"All services healthy, TWB Voice Hausa TTS configured with 3 speakers. TTS Engine: {tts_engine}")
                 return True
             else:
                 self.log_result("Health Check", False, f"HTTP {response.status_code}: {response.text}")
