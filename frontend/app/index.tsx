@@ -368,7 +368,7 @@ export default function MeneneApp() {
       paddingTop: insets.top,
     },
     messagesList: {
-      flex: 1,
+      flexGrow: 1,
       paddingHorizontal: 16,
       paddingVertical: 10,
     },
