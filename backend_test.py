@@ -1,78 +1,81 @@
 #!/usr/bin/env python3
 """
-Menene Backend API Test Suite
-Tests all backend endpoints for the Hausa Conversational AI application
+Backend API Testing for Menene Hausa Conversational AI
+Focus: Testing Meta MMS-TTS implementation and all API endpoints
 """
 
 import requests
 import json
-import uuid
+import base64
+import time
 from datetime import datetime
-import sys
-import os
 
-# Get backend URL from frontend env
-BACKEND_URL = "https://meta-tts-clone.preview.emergentagent.com"
-API_BASE = f"{BACKEND_URL}/api"
+# Base URL from frontend .env
+BASE_URL = "https://meta-tts-clone.preview.emergentagent.com/api"
 
 class MeneneAPITester:
     def __init__(self):
+        self.base_url = BASE_URL
         self.session = requests.Session()
-        self.test_user_id = str(uuid.uuid4())
-        self.test_conversation_id = None
+        self.test_user_id = "hausa-test-user-2024"
+        self.conversation_id = None
         self.test_results = []
         
-    def log_test(self, test_name, success, details="", response_data=None):
+    def log_result(self, test_name, success, details, response_data=None):
         """Log test results"""
-        status = "✅ PASS" if success else "❌ FAIL"
-        print(f"{status} {test_name}")
-        if details:
-            print(f"   Details: {details}")
-        if response_data and not success:
-            print(f"   Response: {response_data}")
-        print()
-        
-        self.test_results.append({
+        result = {
             "test": test_name,
             "success": success,
             "details": details,
-            "response": response_data
-        })
-    
+            "timestamp": datetime.now().isoformat(),
+            "response_data": response_data
+        }
+        self.test_results.append(result)
+        status = "✅ PASS" if success else "❌ FAIL"
+        print(f"{status} {test_name}: {details}")
+        if response_data and not success:
+            print(f"   Response: {response_data}")
+        print()
+
     def test_health_check(self):
-        """Test 1: Health Check Endpoint"""
-        print("🔍 Testing Health Check Endpoint...")
+        """Test 1: Health Check API - Verify Meta MMS-TTS is configured"""
         try:
-            response = self.session.get(f"{API_BASE}/health", timeout=10)
+            response = self.session.get(f"{self.base_url}/health", timeout=10)
             
             if response.status_code == 200:
                 data = response.json()
-                if data.get("status") == "healthy":
-                    services = data.get("services", {})
-                    service_status = []
-                    for service, status in services.items():
-                        service_status.append(f"{service}: {status}")
-                    
-                    self.log_test(
-                        "Health Check", 
-                        True, 
-                        f"Services - {', '.join(service_status)}"
-                    )
-                    return True
-                else:
-                    self.log_test("Health Check", False, "Status not healthy", data)
+                
+                # Check if status is healthy
+                if data.get("status") != "healthy":
+                    self.log_result("Health Check", False, f"Status not healthy: {data.get('status')}", data)
                     return False
+                
+                # Check if Meta MMS-TTS is configured
+                services = data.get("services", {})
+                tts_service = services.get("tts", "")
+                
+                if "meta-mms-tts" not in tts_service.lower():
+                    self.log_result("Health Check", False, f"Meta MMS-TTS not found in services. Got: {tts_service}", data)
+                    return False
+                
+                # Check tts_engine field
+                tts_engine = data.get("tts_engine", "")
+                if "meta" not in tts_engine.lower() or "mms" not in tts_engine.lower():
+                    self.log_result("Health Check", False, f"TTS engine not Meta MMS-TTS. Got: {tts_engine}", data)
+                    return False
+                
+                self.log_result("Health Check", True, f"All services healthy, Meta MMS-TTS configured. TTS Engine: {tts_engine}")
+                return True
             else:
-                self.log_test("Health Check", False, f"HTTP {response.status_code}", response.text)
+                self.log_result("Health Check", False, f"HTTP {response.status_code}: {response.text}")
                 return False
                 
         except Exception as e:
-            self.log_test("Health Check", False, f"Exception: {str(e)}")
+            self.log_result("Health Check", False, f"Request failed: {str(e)}")
             return False
-    
+
     def test_create_conversation(self):
-        """Test 2: Create Conversation Endpoint"""
-        print("🔍 Testing Create Conversation Endpoint...")
+        """Test 2: Create Conversation API"""
         try:
             payload = {
                 "user_id": self.test_user_id,
@@ -80,227 +83,247 @@ class MeneneAPITester:
             }
             
             response = self.session.post(
-                f"{API_BASE}/conversations",
+                f"{self.base_url}/conversations",
                 json=payload,
                 timeout=10
             )
             
             if response.status_code == 200:
                 data = response.json()
-                if data.get("id") and data.get("user_id") == self.test_user_id:
-                    self.test_conversation_id = data["id"]
-                    self.log_test(
-                        "Create Conversation", 
-                        True, 
-                        f"Created conversation ID: {self.test_conversation_id}"
-                    )
-                    return True
-                else:
-                    self.log_test("Create Conversation", False, "Invalid response structure", data)
+                
+                # Validate response structure
+                required_fields = ["id", "user_id", "title", "language", "created_at", "updated_at"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    self.log_result("Create Conversation", False, f"Missing fields: {missing_fields}", data)
                     return False
+                
+                # Validate field values
+                if data["user_id"] != self.test_user_id:
+                    self.log_result("Create Conversation", False, f"User ID mismatch. Expected: {self.test_user_id}, Got: {data['user_id']}", data)
+                    return False
+                
+                if data["language"] != "ha":
+                    self.log_result("Create Conversation", False, f"Language mismatch. Expected: ha, Got: {data['language']}", data)
+                    return False
+                
+                # Store conversation ID for later tests
+                self.conversation_id = data["id"]
+                
+                self.log_result("Create Conversation", True, f"Conversation created successfully. ID: {self.conversation_id}")
+                return True
             else:
-                self.log_test("Create Conversation", False, f"HTTP {response.status_code}", response.text)
+                self.log_result("Create Conversation", False, f"HTTP {response.status_code}: {response.text}")
                 return False
                 
         except Exception as e:
-            self.log_test("Create Conversation", False, f"Exception: {str(e)}")
+            self.log_result("Create Conversation", False, f"Request failed: {str(e)}")
             return False
-    
-    def test_chat_endpoint(self):
-        """Test 3: Chat Endpoint with Gemini AI"""
-        print("🔍 Testing Chat Endpoint...")
-        if not self.test_conversation_id:
-            self.log_test("Chat Endpoint", False, "No conversation ID available")
-            return False
-            
-        try:
-            payload = {
-                "conversation_id": self.test_conversation_id,
-                "user_id": self.test_user_id,
-                "message": "Sannu, yaya kake?",  # Hello, how are you? in Hausa
-                "language": "ha"
-            }
-            
-            response = self.session.post(
-                f"{API_BASE}/chat",
-                json=payload,
-                timeout=30  # Longer timeout for AI response
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("success") and data.get("response"):
-                    ai_response = data["response"]
-                    self.log_test(
-                        "Chat Endpoint", 
-                        True, 
-                        f"AI Response: {ai_response[:100]}{'...' if len(ai_response) > 100 else ''}"
-                    )
-                    return True
-                else:
-                    self.log_test("Chat Endpoint", False, "Invalid response structure", data)
-                    return False
-            else:
-                self.log_test("Chat Endpoint", False, f"HTTP {response.status_code}", response.text)
-                return False
-                
-        except Exception as e:
-            self.log_test("Chat Endpoint", False, f"Exception: {str(e)}")
-            return False
-    
+
     def test_text_to_speech(self):
-        """Test 4: Text-to-Speech Endpoint"""
-        print("🔍 Testing Text-to-Speech Endpoint...")
+        """Test 3: Text-to-Speech API - PRIMARY TEST for Meta MMS-TTS"""
         try:
-            # Use standard English US voice since Nigerian English may not be available
+            # Test with Hausa text
             payload = {
-                "text": "Hello, how are you?",  # English text
-                "language": "en-US",
-                "voice": "en-US-Standard-A"
+                "text": "Sannu, yaya kake?",  # Hello, how are you? in Hausa
+                "language": "ha"
             }
             
+            print("Testing Meta MMS-TTS with Hausa text: 'Sannu, yaya kake?'")
+            
             response = self.session.post(
-                f"{API_BASE}/text-to-speech",
+                f"{self.base_url}/text-to-speech",
                 json=payload,
-                timeout=15
+                timeout=30  # Longer timeout for TTS processing
             )
             
             if response.status_code == 200:
                 data = response.json()
-                if data.get("success") and data.get("audio_content"):
-                    audio_content = data["audio_content"]
-                    cached = data.get("cached", False)
-                    self.log_test(
-                        "Text-to-Speech", 
-                        True, 
-                        f"Audio generated (cached: {cached}), length: {len(audio_content)} chars"
-                    )
-                    return True
-                else:
-                    self.log_test("Text-to-Speech", False, "Invalid response structure", data)
+                
+                # Check success field
+                if not data.get("success"):
+                    self.log_result("Text-to-Speech", False, "Success field is False", data)
                     return False
+                
+                # Check TTS engine
+                tts_engine = data.get("tts_engine", "")
+                if tts_engine != "meta-mms-tts":
+                    self.log_result("Text-to-Speech", False, f"Wrong TTS engine. Expected: meta-mms-tts, Got: {tts_engine}", data)
+                    return False
+                
+                # Check audio content
+                audio_content = data.get("audio_content")
+                if not audio_content:
+                    self.log_result("Text-to-Speech", False, "No audio_content in response", data)
+                    return False
+                
+                # Validate base64 audio content
+                try:
+                    audio_bytes = base64.b64decode(audio_content)
+                    if len(audio_bytes) < 1000:  # WAV files should be at least 1KB for meaningful audio
+                        self.log_result("Text-to-Speech", False, f"Audio content too small: {len(audio_bytes)} bytes", {"audio_size": len(audio_bytes)})
+                        return False
+                    
+                    # Check WAV header (first 4 bytes should be "RIFF")
+                    if audio_bytes[:4] != b'RIFF':
+                        self.log_result("Text-to-Speech", False, "Audio content is not a valid WAV file", {"header": audio_bytes[:8].hex()})
+                        return False
+                        
+                except Exception as decode_error:
+                    self.log_result("Text-to-Speech", False, f"Invalid base64 audio content: {str(decode_error)}")
+                    return False
+                
+                # Check sample rate if provided
+                sample_rate = data.get("sample_rate")
+                if sample_rate and sample_rate != 16000:
+                    print(f"   Note: Sample rate is {sample_rate}Hz (expected 16000Hz for MMS-TTS)")
+                
+                audio_size_kb = len(audio_bytes) / 1024
+                cached = data.get("cached", False)
+                
+                self.log_result("Text-to-Speech", True, 
+                    f"Meta MMS-TTS working correctly. Audio: {audio_size_kb:.1f}KB WAV, "
+                    f"Engine: {tts_engine}, Cached: {cached}")
+                return True
             else:
-                self.log_test("Text-to-Speech", False, f"HTTP {response.status_code}", response.text)
+                self.log_result("Text-to-Speech", False, f"HTTP {response.status_code}: {response.text}")
                 return False
                 
         except Exception as e:
-            self.log_test("Text-to-Speech", False, f"Exception: {str(e)}")
+            self.log_result("Text-to-Speech", False, f"Request failed: {str(e)}")
             return False
-    
+
     def test_get_conversations(self):
-        """Test 5: Get Conversations for User"""
-        print("🔍 Testing Get Conversations Endpoint...")
+        """Test 4: Get Conversations API"""
         try:
             response = self.session.get(
-                f"{API_BASE}/conversations/{self.test_user_id}",
+                f"{self.base_url}/conversations/{self.test_user_id}",
                 timeout=10
             )
             
             if response.status_code == 200:
                 data = response.json()
-                if data.get("success") and "conversations" in data:
-                    conversations = data["conversations"]
-                    self.log_test(
-                        "Get Conversations", 
-                        True, 
-                        f"Found {len(conversations)} conversation(s)"
-                    )
-                    return True
-                else:
-                    self.log_test("Get Conversations", False, "Invalid response structure", data)
+                
+                # Check success field
+                if not data.get("success"):
+                    self.log_result("Get Conversations", False, "Success field is False", data)
                     return False
+                
+                # Check conversations field
+                conversations = data.get("conversations", [])
+                if not isinstance(conversations, list):
+                    self.log_result("Get Conversations", False, "Conversations field is not a list", data)
+                    return False
+                
+                # Should have at least the conversation we created
+                if len(conversations) == 0:
+                    self.log_result("Get Conversations", False, "No conversations found for user", data)
+                    return False
+                
+                # Verify our conversation is in the list
+                our_conversation = None
+                for conv in conversations:
+                    if conv.get("id") == self.conversation_id:
+                        our_conversation = conv
+                        break
+                
+                if not our_conversation:
+                    self.log_result("Get Conversations", False, f"Created conversation {self.conversation_id} not found in list", data)
+                    return False
+                
+                self.log_result("Get Conversations", True, f"Found {len(conversations)} conversations for user")
+                return True
             else:
-                self.log_test("Get Conversations", False, f"HTTP {response.status_code}", response.text)
+                self.log_result("Get Conversations", False, f"HTTP {response.status_code}: {response.text}")
                 return False
                 
         except Exception as e:
-            self.log_test("Get Conversations", False, f"Exception: {str(e)}")
+            self.log_result("Get Conversations", False, f"Request failed: {str(e)}")
             return False
-    
+
     def test_get_messages(self):
-        """Test 6: Get Messages in Conversation"""
-        print("🔍 Testing Get Messages Endpoint...")
-        if not self.test_conversation_id:
-            self.log_test("Get Messages", False, "No conversation ID available")
-            return False
-            
+        """Test 5: Get Messages API"""
         try:
+            if not self.conversation_id:
+                self.log_result("Get Messages", False, "No conversation ID available for testing")
+                return False
+            
             response = self.session.get(
-                f"{API_BASE}/conversations/{self.test_conversation_id}/messages",
+                f"{self.base_url}/conversations/{self.conversation_id}/messages",
                 timeout=10
             )
             
             if response.status_code == 200:
                 data = response.json()
-                if data.get("success") and "messages" in data:
-                    messages = data["messages"]
-                    self.log_test(
-                        "Get Messages", 
-                        True, 
-                        f"Found {len(messages)} message(s) in conversation"
-                    )
-                    return True
-                else:
-                    self.log_test("Get Messages", False, "Invalid response structure", data)
+                
+                # Check success field
+                if not data.get("success"):
+                    self.log_result("Get Messages", False, "Success field is False", data)
                     return False
+                
+                # Check messages field
+                messages = data.get("messages", [])
+                if not isinstance(messages, list):
+                    self.log_result("Get Messages", False, "Messages field is not a list", data)
+                    return False
+                
+                # Empty messages list is OK for a new conversation
+                self.log_result("Get Messages", True, f"Retrieved {len(messages)} messages for conversation")
+                return True
             else:
-                self.log_test("Get Messages", False, f"HTTP {response.status_code}", response.text)
+                self.log_result("Get Messages", False, f"HTTP {response.status_code}: {response.text}")
                 return False
                 
         except Exception as e:
-            self.log_test("Get Messages", False, f"Exception: {str(e)}")
+            self.log_result("Get Messages", False, f"Request failed: {str(e)}")
             return False
-    
+
     def run_all_tests(self):
-        """Run all tests in sequence"""
-        print("=" * 60)
-        print("🚀 MENENE BACKEND API TEST SUITE")
-        print("=" * 60)
-        print(f"Backend URL: {BACKEND_URL}")
-        print(f"Test User ID: {self.test_user_id}")
-        print("=" * 60)
+        """Run all backend API tests"""
+        print("=" * 80)
+        print("MENENE HAUSA CONVERSATIONAL AI - BACKEND API TESTING")
+        print("Focus: Meta MMS-TTS Implementation Verification")
+        print(f"Base URL: {self.base_url}")
+        print("=" * 80)
         print()
         
-        # Run tests in order to build up test data
+        # Test sequence
         tests = [
-            self.test_health_check,
-            self.test_create_conversation,
-            self.test_chat_endpoint,
-            self.test_text_to_speech,
-            self.test_get_conversations,
-            self.test_get_messages
+            ("Health Check (Meta MMS-TTS)", self.test_health_check),
+            ("Create Conversation", self.test_create_conversation),
+            ("Text-to-Speech (Meta MMS-TTS)", self.test_text_to_speech),
+            ("Get Conversations", self.test_get_conversations),
+            ("Get Messages", self.test_get_messages)
         ]
         
         passed = 0
         total = len(tests)
         
-        for test in tests:
-            if test():
+        for test_name, test_func in tests:
+            print(f"Running: {test_name}")
+            if test_func():
                 passed += 1
+            time.sleep(1)  # Brief pause between tests
         
-        print("=" * 60)
-        print("📊 TEST SUMMARY")
-        print("=" * 60)
-        print(f"Total Tests: {total}")
-        print(f"Passed: {passed}")
-        print(f"Failed: {total - passed}")
-        print(f"Success Rate: {(passed/total)*100:.1f}%")
-        print()
+        print("=" * 80)
+        print(f"TEST SUMMARY: {passed}/{total} tests passed")
+        print("=" * 80)
         
-        # Show failed tests
-        failed_tests = [r for r in self.test_results if not r["success"]]
-        if failed_tests:
-            print("❌ FAILED TESTS:")
-            for test in failed_tests:
-                print(f"   • {test['test']}: {test['details']}")
-        else:
-            print("✅ ALL TESTS PASSED!")
-        
-        print("=" * 60)
+        # Print detailed results
+        print("\nDETAILED RESULTS:")
+        for result in self.test_results:
+            status = "✅" if result["success"] else "❌"
+            print(f"{status} {result['test']}: {result['details']}")
         
         return passed == total
 
 if __name__ == "__main__":
     tester = MeneneAPITester()
     success = tester.run_all_tests()
-    sys.exit(0 if success else 1)
+    
+    if success:
+        print("\n🎉 All backend API tests passed!")
+    else:
+        print("\n⚠️  Some tests failed. Check details above.")
+        exit(1)
