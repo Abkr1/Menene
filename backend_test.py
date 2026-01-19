@@ -233,8 +233,9 @@ class MeneneAPITester:
     def test_get_conversations(self):
         """Test 4: Get Conversations API"""
         try:
+            user_id = "test-user-twb"  # Use the specific user_id from review request
             response = self.session.get(
-                f"{self.base_url}/conversations/{self.test_user_id}",
+                f"{self.base_url}/conversations/{user_id}",
                 timeout=10
             )
             
@@ -268,7 +269,7 @@ class MeneneAPITester:
                     self.log_result("Get Conversations", False, f"Created conversation {self.conversation_id} not found in list", data)
                     return False
                 
-                self.log_result("Get Conversations", True, f"Found {len(conversations)} conversations for user")
+                self.log_result("Get Conversations", True, f"Found {len(conversations)} conversations for user {user_id}")
                 return True
             else:
                 self.log_result("Get Conversations", False, f"HTTP {response.status_code}: {response.text}")
