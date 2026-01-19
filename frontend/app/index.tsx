@@ -11,12 +11,13 @@ import {
   ActivityIndicator,
   Alert,
   useColorScheme,
-  ScrollView,
+  Keyboard,
 } from 'react-native';
 import { Audio } from 'expo-av';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
 
