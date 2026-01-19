@@ -12,6 +12,9 @@ import {
   Alert,
   useColorScheme,
   Keyboard,
+  Modal,
+  ScrollView,
+  Dimensions,
 } from 'react-native';
 import { Audio } from 'expo-av';
 import axios from 'axios';
