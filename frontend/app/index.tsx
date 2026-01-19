@@ -709,22 +709,31 @@ export default function MeneneApp() {
             </View>
           )}
 
-          {/* Audio Playing Indicator with Stop Button */}
+          {/* Audio Playing Indicator with Pause/Play and Stop Buttons */}
           {isPlayingAudio && (
             <View style={styles.audioPlayingContainer}>
               <View style={styles.audioPlayingIndicator}>
-                <Ionicons name="volume-high" size={20} color="#007AFF" />
+                <Ionicons name={isAudioPaused ? "volume-mute" : "volume-high"} size={20} color="#007AFF" />
                 <Text style={[styles.audioPlayingText, isDark && styles.audioPlayingTextDark]}>
-                  Playing audio...
+                  {isAudioPaused ? 'Paused' : 'Playing audio...'}
                 </Text>
               </View>
-              <TouchableOpacity
-                style={styles.stopAudioButton}
-                onPress={stopAudio}
-              >
-                <Ionicons name="stop-circle" size={28} color="#FF3B30" />
-                <Text style={styles.stopAudioText}>Stop</Text>
-              </TouchableOpacity>
+              <View style={styles.audioControlButtons}>
+                <TouchableOpacity
+                  style={styles.pauseAudioButton}
+                  onPress={togglePauseAudio}
+                >
+                  <Ionicons name={isAudioPaused ? "play-circle" : "pause-circle"} size={28} color="#007AFF" />
+                  <Text style={styles.pauseAudioText}>{isAudioPaused ? 'Play' : 'Pause'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.stopAudioButton}
+                  onPress={stopAudio}
+                >
+                  <Ionicons name="stop-circle" size={28} color="#FF3B30" />
+                  <Text style={styles.stopAudioText}>Stop</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
 
