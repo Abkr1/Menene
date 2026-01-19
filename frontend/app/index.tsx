@@ -291,12 +291,10 @@ export default function MeneneApp() {
     try {
       setIsPlayingAudio(true);
 
-      // Using TWB Voice Hausa TTS (CLEAR-Global/TWB-Voice-Hausa-TTS-1.0)
-      // Supports 3 speakers: spk_f_1 (female), spk_m_1 (male), spk_m_2 (male)
+      // Using Meta MMS-TTS for Hausa (facebook/mms-tts-hau) - FAST!
       const response = await axios.post(`${BACKEND_URL}/api/text-to-speech`, {
         text,
-        language: 'ha',  // Hausa language - native support via TWB Voice TTS
-        speaker: 'spk_f_1',  // Female speaker (options: spk_f_1, spk_m_1, spk_m_2)
+        language: 'ha',  // Hausa language - native support via Meta MMS-TTS
       });
 
       if (response.data.success) {
