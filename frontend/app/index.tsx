@@ -300,7 +300,7 @@ export default function MeneneApp() {
       if (response.data.success) {
         const audioContent = response.data.audio_content;
         
-        // Create audio from base64 (WAV format from Meta MMS-TTS)
+        // Create audio from base64 (WAV format from TWB Voice TTS)
         const base64Audio = `data:audio/wav;base64,${audioContent}`;
         
         // Unload previous sound
@@ -325,6 +325,21 @@ export default function MeneneApp() {
 
     } catch (error) {
       console.error('TTS error:', error);
+      setIsPlayingAudio(false);
+    }
+  };
+
+  // Stop audio playback
+  const stopAudio = async () => {
+    try {
+      if (sound) {
+        await sound.stopAsync();
+        await sound.unloadAsync();
+        setSound(null);
+      }
+      setIsPlayingAudio(false);
+    } catch (error) {
+      console.error('Error stopping audio:', error);
       setIsPlayingAudio(false);
     }
   };
