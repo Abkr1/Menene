@@ -476,6 +476,25 @@ async def get_conversations(user_id: str):
     return {"success": True, "conversations": conversations}
 
 
+class ConversationUpdate(BaseModel):
+    title: Optional[str] = None
+
+
+@api_router.patch("/conversations/{conversation_id}")
+async def update_conversation(conversation_id: str, update: ConversationUpdate):
+    """Update a conversation (e.g., rename title)"""
+    update_data = {"updated_at": datetime.utcnow()}
+    if update.title:
+        update_data["title"] = update.title
+    
+    await db.conversations.update_one(
+        {"id": conversation_id},
+        {"$set": update_data}
+    )
+    
+    return {"success": True, "message": "Conversation updated"}
+
+
 @api_router.get("/conversations/{conversation_id}/messages")
 async def get_messages(conversation_id: str):
     """Get all messages in a conversation"""
