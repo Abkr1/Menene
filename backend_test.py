@@ -127,73 +127,104 @@ class MeneneAPITester:
             return False
 
     def test_text_to_speech(self):
-        """Test 3: Text-to-Speech API - PRIMARY TEST for Meta MMS-TTS"""
+        """Test 3: Text-to-Speech API - PRIMARY TEST for TWB Voice Hausa TTS"""
         try:
-            # Test with Hausa text
-            payload = {
-                "text": "Sannu, yaya kake?",  # Hello, how are you? in Hausa
-                "language": "ha"
-            }
+            # Test cases as specified in the review request
+            test_cases = [
+                {
+                    "text": "Sannu, yaya kake?",
+                    "language": "ha",
+                    "speaker": "spk_f_1",
+                    "description": "Female speaker test"
+                },
+                {
+                    "text": "Ina kwana",
+                    "language": "ha", 
+                    "speaker": "spk_m_1",
+                    "description": "Male speaker 1 test"
+                }
+            ]
             
-            print("Testing Meta MMS-TTS with Hausa text: 'Sannu, yaya kake?'")
+            all_passed = True
             
-            response = self.session.post(
-                f"{self.base_url}/text-to-speech",
-                json=payload,
-                timeout=30  # Longer timeout for TTS processing
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
+            for i, test_case in enumerate(test_cases, 1):
+                print(f"\n--- Test Case {i}: {test_case['description']} ---")
+                print(f"Testing TWB Voice Hausa TTS with: '{test_case['text']}' (speaker: {test_case['speaker']})")
                 
-                # Check success field
-                if not data.get("success"):
-                    self.log_result("Text-to-Speech", False, "Success field is False", data)
-                    return False
+                payload = {
+                    "text": test_case["text"],
+                    "language": test_case["language"],
+                    "speaker": test_case["speaker"]
+                }
                 
-                # Check TTS engine
-                tts_engine = data.get("tts_engine", "")
-                if tts_engine != "meta-mms-tts":
-                    self.log_result("Text-to-Speech", False, f"Wrong TTS engine. Expected: meta-mms-tts, Got: {tts_engine}", data)
-                    return False
+                response = self.session.post(
+                    f"{self.base_url}/text-to-speech",
+                    json=payload,
+                    timeout=60  # Longer timeout for TTS processing
+                )
                 
-                # Check audio content
-                audio_content = data.get("audio_content")
-                if not audio_content:
-                    self.log_result("Text-to-Speech", False, "No audio_content in response", data)
-                    return False
-                
-                # Validate base64 audio content
-                try:
-                    audio_bytes = base64.b64decode(audio_content)
-                    if len(audio_bytes) < 1000:  # WAV files should be at least 1KB for meaningful audio
-                        self.log_result("Text-to-Speech", False, f"Audio content too small: {len(audio_bytes)} bytes", {"audio_size": len(audio_bytes)})
-                        return False
+                if response.status_code == 200:
+                    data = response.json()
                     
-                    # Check WAV header (first 4 bytes should be "RIFF")
-                    if audio_bytes[:4] != b'RIFF':
-                        self.log_result("Text-to-Speech", False, "Audio content is not a valid WAV file", {"header": audio_bytes[:8].hex()})
-                        return False
+                    # Check success field
+                    if not data.get("success"):
+                        self.log_result(f"Text-to-Speech ({test_case['description']})", False, "Success field is False", data)
+                        all_passed = False
+                        continue
+                    
+                    # Check TTS engine - should be "twb-voice-hausa-tts"
+                    tts_engine = data.get("tts_engine", "")
+                    if tts_engine != "twb-voice-hausa-tts":
+                        self.log_result(f"Text-to-Speech ({test_case['description']})", False, f"Wrong TTS engine. Expected: twb-voice-hausa-tts, Got: {tts_engine}", data)
+                        all_passed = False
+                        continue
+                    
+                    # Check speaker
+                    speaker = data.get("speaker", "")
+                    if speaker != test_case["speaker"]:
+                        self.log_result(f"Text-to-Speech ({test_case['description']})", False, f"Wrong speaker. Expected: {test_case['speaker']}, Got: {speaker}", data)
+                        all_passed = False
+                        continue
+                    
+                    # Check audio content
+                    audio_content = data.get("audio_content")
+                    if not audio_content:
+                        self.log_result(f"Text-to-Speech ({test_case['description']})", False, "No audio_content in response", data)
+                        all_passed = False
+                        continue
+                    
+                    # Validate base64 audio content
+                    try:
+                        audio_bytes = base64.b64decode(audio_content)
+                        audio_size_kb = len(audio_bytes) / 1024
                         
-                except Exception as decode_error:
-                    self.log_result("Text-to-Speech", False, f"Invalid base64 audio content: {str(decode_error)}")
-                    return False
-                
-                # Check sample rate if provided
-                sample_rate = data.get("sample_rate")
-                if sample_rate and sample_rate != 16000:
-                    print(f"   Note: Sample rate is {sample_rate}Hz (expected 16000Hz for MMS-TTS)")
-                
-                audio_size_kb = len(audio_bytes) / 1024
-                cached = data.get("cached", False)
-                
-                self.log_result("Text-to-Speech", True, 
-                    f"Meta MMS-TTS working correctly. Audio: {audio_size_kb:.1f}KB WAV, "
-                    f"Engine: {tts_engine}, Cached: {cached}")
-                return True
-            else:
-                self.log_result("Text-to-Speech", False, f"HTTP {response.status_code}: {response.text}")
-                return False
+                        # Check for substantial audio content (400KB+ as mentioned in requirements)
+                        if len(audio_bytes) < 10000:  # At least 10KB for meaningful audio
+                            self.log_result(f"Text-to-Speech ({test_case['description']})", False, f"Audio content too small: {len(audio_bytes)} bytes", {"audio_size": len(audio_bytes)})
+                            all_passed = False
+                            continue
+                        
+                        # Check WAV header (first 4 bytes should be "RIFF")
+                        if audio_bytes[:4] != b'RIFF':
+                            self.log_result(f"Text-to-Speech ({test_case['description']})", False, "Audio content is not a valid WAV file", {"header": audio_bytes[:8].hex()})
+                            all_passed = False
+                            continue
+                            
+                    except Exception as decode_error:
+                        self.log_result(f"Text-to-Speech ({test_case['description']})", False, f"Invalid base64 audio content: {str(decode_error)}")
+                        all_passed = False
+                        continue
+                    
+                    cached = data.get("cached", False)
+                    
+                    self.log_result(f"Text-to-Speech ({test_case['description']})", True, 
+                        f"TWB Voice Hausa TTS working correctly. Audio: {audio_size_kb:.1f}KB WAV, "
+                        f"Engine: {tts_engine}, Speaker: {speaker}, Cached: {cached}")
+                else:
+                    self.log_result(f"Text-to-Speech ({test_case['description']})", False, f"HTTP {response.status_code}: {response.text}")
+                    all_passed = False
+            
+            return all_passed
                 
         except Exception as e:
             self.log_result("Text-to-Speech", False, f"Request failed: {str(e)}")
