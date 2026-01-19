@@ -125,8 +125,64 @@ export default function MeneneApp() {
         language: 'ha',
       });
       setCurrentConversation(response.data);
+      // Refresh conversation history
+      await loadConversationHistory();
     } catch (error) {
       console.error('Failed to create conversation:', error);
+    }
+  };
+
+  // Load conversation history
+  const loadConversationHistory = async () => {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/conversations/${userId}`);
+      if (response.data.success) {
+        setConversationHistory(response.data.conversations);
+      }
+    } catch (error) {
+      console.error('Failed to load conversation history:', error);
+    }
+  };
+
+  // Start a new chat
+  const startNewChat = async () => {
+    setSidebarVisible(false);
+    setMessages([]);
+    setCurrentConversation(null);
+    await createConversation();
+  };
+
+  // Load a specific conversation
+  const loadConversation = async (conversation: Conversation) => {
+    setSidebarVisible(false);
+    setCurrentConversation(conversation);
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/conversations/${conversation.id}/messages`);
+      if (response.data.success) {
+        setMessages(response.data.messages);
+      }
+    } catch (error) {
+      console.error('Failed to load messages:', error);
+    }
+  };
+
+  // Auto-name conversation based on first message
+  const autoNameConversation = async (conversationId: string, firstMessage: string) => {
+    try {
+      // Create a short title from the first message (max 30 chars)
+      const title = firstMessage.length > 30 
+        ? firstMessage.substring(0, 30) + '...' 
+        : firstMessage;
+      
+      // Update conversation title in database
+      await axios.patch(`${BACKEND_URL}/api/conversations/${conversationId}`, {
+        title: title
+      });
+      
+      // Refresh history
+      await loadConversationHistory();
+    } catch (error) {
+      console.error('Failed to auto-name conversation:', error);
     }
   };
 
