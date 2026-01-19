@@ -61,6 +61,21 @@ export default function MeneneApp() {
   // Initialize app
   useEffect(() => {
     initializeApp();
+    
+    // Keyboard listeners for Android
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => {
+        setKeyboardVisible(true);
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardVisible(false);
+      }
+    );
+
     return () => {
       if (recording) {
         recording.unloadAsync();
@@ -71,6 +86,8 @@ export default function MeneneApp() {
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
     };
   }, []);
 
