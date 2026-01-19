@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Test the Menene backend API endpoints for the Hausa Conversational AI application - NOW USING META MMS-TTS for native Hausa support"
+user_problem_statement: "Test the Menene backend API endpoints for the Hausa Conversational AI application - NOW USING TWB Voice Hausa TTS (CLEAR-Global/TWB-Voice-Hausa-TTS-1.0) with multi-speaker support"
 
 backend:
   - task: "Health Check API"
@@ -122,6 +122,9 @@ backend:
         - working: true
           agent: "testing"
           comment: "VERIFIED: Health check now correctly shows Meta MMS-TTS configuration. Services show 'tts: meta-mms-tts (facebook/mms-tts-hau)' and tts_engine: 'Meta MMS-TTS for Hausa'. All services healthy."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED: Health check now correctly shows TWB Voice Hausa TTS configuration. Returns status 'healthy', tts_engine: 'TWB Voice Hausa TTS', and 3 speakers: spk_f_1 (female), spk_m_1 (male), spk_m_2 (male). All services healthy and properly configured."
 
   - task: "Create Conversation API"
     implemented: true
@@ -134,6 +137,9 @@ backend:
         - working: true
           agent: "testing"
           comment: "Conversation creation working correctly. Successfully creates new conversations with UUID and returns proper response structure."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED: Conversation creation working correctly with test-user-twb. Successfully creates conversations with proper UUID, user_id, title, language fields. Response structure validated."
 
   - task: "Chat Endpoint with Gemini AI"
     implemented: true
@@ -147,7 +153,7 @@ backend:
           agent: "testing"
           comment: "Chat endpoint working correctly. Gemini AI integration functional, responds appropriately in Hausa to user messages. AI responses are contextually appropriate."
 
-  - task: "Text-to-Speech API (Meta MMS-TTS)"
+  - task: "Text-to-Speech API (TWB Voice Hausa TTS)"
     implemented: true
     working: true
     file: "server.py"
@@ -167,6 +173,9 @@ backend:
         - working: true
           agent: "testing"
           comment: "COMPREHENSIVE TEST PASSED: Meta MMS-TTS working perfectly! Tested with Hausa text 'Sannu, yaya kake?' - generates 57KB WAV audio, returns tts_engine: 'meta-mms-tts', proper caching functionality, valid WAV format with RIFF header. Native Hausa TTS now fully functional."
+        - working: true
+          agent: "testing"
+          comment: "COMPREHENSIVE TEST PASSED: TWB Voice Hausa TTS working perfectly! Tested with multiple speakers: Female (spk_f_1) generates 438KB WAV audio for 'Sannu, yaya kake?', Male (spk_m_1) generates 137KB WAV audio for 'Ina kwana'. Returns tts_engine: 'twb-voice-hausa-tts', proper multi-speaker support, caching functionality, valid WAV format. Native Hausa TTS with multi-speaker support fully functional."
 
   - task: "Get Conversations API"
     implemented: true
@@ -182,6 +191,9 @@ backend:
         - working: true
           agent: "testing"
           comment: "Fixed by excluding _id field from MongoDB queries to avoid ObjectId serialization issues. API now returns conversations correctly."
+        - working: true
+          agent: "testing"
+          comment: "VERIFIED: Get conversations working correctly for test-user-twb. Successfully retrieves conversations list with proper success field and conversation structure validation."
 
   - task: "Get Messages API"
     implemented: true
