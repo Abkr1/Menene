@@ -162,29 +162,6 @@ class ConversationCreate(BaseModel):
 
 # ==================== TTS HELPER FUNCTIONS ====================
 
-def truncate_text(text: str, max_chars: int = 200) -> str:
-    """Truncate text to improve TTS speed while keeping it meaningful"""
-    if len(text) <= max_chars:
-        return text
-    
-    # Try to cut at sentence boundary
-    truncated = text[:max_chars]
-    last_period = truncated.rfind('.')
-    last_question = truncated.rfind('?')
-    last_exclaim = truncated.rfind('!')
-    
-    cut_point = max(last_period, last_question, last_exclaim)
-    if cut_point > max_chars // 2:
-        return text[:cut_point + 1]
-    
-    # Cut at word boundary
-    last_space = truncated.rfind(' ')
-    if last_space > max_chars // 2:
-        return text[:last_space] + '...'
-    
-    return truncated + '...'
-
-
 def synthesize_speech_sync(text: str, speaker: str) -> tuple:
     """Synchronous TTS synthesis for thread pool execution"""
     tts = get_twb_tts()
