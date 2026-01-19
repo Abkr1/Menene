@@ -611,7 +611,11 @@ export default function MeneneApp() {
         </View>
       ) : (
         /* Messages exist - normal layout with input at bottom */
-        <>
+        <KeyboardAvoidingView 
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        >
           <FlatList
             ref={flatListRef}
             data={messages}
@@ -619,6 +623,7 @@ export default function MeneneApp() {
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.messagesList}
             onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
+            keyboardShouldPersistTaps="handled"
           />
 
           {/* Loading Indicator */}
@@ -679,7 +684,7 @@ export default function MeneneApp() {
               )}
             </View>
           </View>
-        </>
+        </KeyboardAvoidingView>
       )}
     </View>
   );
