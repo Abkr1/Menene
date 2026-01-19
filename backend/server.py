@@ -314,16 +314,12 @@ Respond naturally in Hausa language. Provide detailed and helpful responses."""
 @api_router.post("/text-to-speech")
 async def text_to_speech(request: TTSRequest):
     """
-    Convert text to speech using TWB Voice Hausa TTS (Optimized)
+    Convert text to speech using TWB Voice Hausa TTS
     Model: CLEAR-Global/TWB-Voice-Hausa-TTS-1.0
     Speakers: spk_f_1 (female), spk_m_1 (male), spk_m_2 (male)
     """
     try:
-        # Truncate long text for faster processing
-        original_text = request.text
-        text = truncate_text(original_text, max_chars=150)
-        was_truncated = len(text) < len(original_text)
-        
+        text = request.text
         logger.info(f"TTS request for text ({len(text)} chars): {text[:50]}...")
         
         # Validate speaker
@@ -344,8 +340,7 @@ async def text_to_speech(request: TTSRequest):
                 "audio_content": cached_audio["audio_content"],
                 "cached": True,
                 "tts_engine": "twb-voice-hausa-tts",
-                "speaker": speaker,
-                "truncated": was_truncated
+                "speaker": speaker
             }
         
         # Run TTS in thread pool to not block event loop
@@ -365,9 +360,9 @@ async def text_to_speech(request: TTSRequest):
         # Convert to base64
         audio_content = base64.b64encode(wav_bytes).decode('utf-8')
         
-        # Cache the audio (only if not too large)
+        # Cache the audio (only if not too large for MongoDB - 16MB limit)
         audio_size = len(audio_content)
-        if audio_size < 10 * 1024 * 1024:  # Less than 10MB
+        if audio_size < 14 * 1024 * 1024:  # Less than 14MB to be safe
             try:
                 await db.audio_cache.insert_one({
                     "text": text.lower(),
@@ -388,8 +383,7 @@ async def text_to_speech(request: TTSRequest):
             "cached": False,
             "tts_engine": "twb-voice-hausa-tts",
             "speaker": speaker,
-            "sample_rate": sample_rate,
-            "truncated": was_truncated
+            "sample_rate": sample_rate
         }
         
     except Exception as e:
