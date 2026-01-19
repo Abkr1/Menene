@@ -271,10 +271,10 @@ export default function MeneneApp() {
     try {
       setIsPlayingAudio(true);
 
+      // Using Meta MMS-TTS for Hausa (facebook/mms-tts-hau)
       const response = await axios.post(`${BACKEND_URL}/api/text-to-speech`, {
         text,
-        language: 'en-US',  // Using English voice as Hausa is not supported
-        voice: 'en-US-Standard-A',  // English voice instead of ha-NG-Standard-A
+        language: 'ha',  // Hausa language - now supported via Meta MMS-TTS
       });
 
       if (response.data.success) {
