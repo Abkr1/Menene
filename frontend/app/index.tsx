@@ -460,7 +460,7 @@ export default function MeneneApp() {
     bottomInputContainer: {
       paddingHorizontal: 16,
       paddingVertical: 12,
-      paddingBottom: Platform.OS === 'ios' ? 30 : 12,
+      paddingBottom: keyboardVisible ? 12 : Math.max(insets.bottom, 12),
       backgroundColor: isDark ? '#2d2d2d' : '#ffffff',
       borderTopWidth: 1,
       borderTopColor: isDark ? '#404040' : '#e0e0e0',
