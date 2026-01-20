@@ -46,20 +46,20 @@ db = client[os.environ['DB_NAME']]
 tts_executor = ThreadPoolExecutor(max_workers=2)
 asr_executor = ThreadPoolExecutor(max_workers=2)
 
-# ==================== HAUSA ASR MODEL (NCAIR1/Hausa-ASR) ====================
+# ==================== HAUSA ASR MODEL (Abkrs1/Hausa-ASR-copy) ====================
 # Fine-tuned Whisper model specifically for Hausa language
 hausa_asr_pipe = None
 
 def load_hausa_asr():
-    """Load NCAIR1/Hausa-ASR model for Hausa speech recognition"""
+    """Load Abkrs1/Hausa-ASR-copy model for Hausa speech recognition"""
     global hausa_asr_pipe
     
-    logger.info("Loading Hausa ASR model (NCAIR1/Hausa-ASR)...")
+    logger.info("Loading Hausa ASR model (Abkrs1/Hausa-ASR-copy)...")
     
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
     
-    model_id = "NCAIR1/Hausa-ASR"
+    model_id = "Abkrs1/Hausa-ASR-copy"
     
     hausa_asr_pipe = pipeline(
         "automatic-speech-recognition",
