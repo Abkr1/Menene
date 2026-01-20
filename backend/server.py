@@ -267,11 +267,12 @@ async def transcribe_audio(
             await f.write(content)
         
         # Transcribe using Whisper
+        # Note: Hausa (ha) is not officially supported, so we let Whisper auto-detect
+        # It may still transcribe Hausa with reasonable accuracy
         with open(temp_path, 'rb') as audio_file:
             transcription = get_openai_client().audio.transcriptions.create(
                 model="whisper-1",
                 file=audio_file,
-                language="ha",
                 response_format="verbose_json"
             )
         
