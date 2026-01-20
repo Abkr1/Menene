@@ -292,7 +292,7 @@ def synthesize_speech_optimized(text: str) -> tuple:
     return wav_array, target_sample_rate
 
 
-# ==================== SPEECH TO TEXT ENDPOINT ====================
+# ==================== SPEECH TO TEXT ENDPOINT (NCAIR1/Hausa-ASR) ====================
 
 @api_router.post("/speech-to-text")
 async def transcribe_audio(
@@ -300,7 +300,7 @@ async def transcribe_audio(
     user_id: str = File(...),
     conversation_id: str = File(...)
 ):
-    """Transcribe Hausa audio using OpenAI Whisper API"""
+    """Transcribe Hausa audio using NCAIR1/Hausa-ASR (fine-tuned Whisper for Hausa)"""
     try:
         logger.info(f"Received audio file: {audio.filename}, size: {audio.size}")
         
@@ -312,20 +312,43 @@ async def transcribe_audio(
             content = await audio.read()
             await f.write(content)
         
-        # Transcribe using Whisper
-        # Note: Hausa (ha) is not officially supported, so we let Whisper auto-detect
-        # It may still transcribe Hausa with reasonable accuracy
-        with open(temp_path, 'rb') as audio_file:
-            transcription = get_openai_client().audio.transcriptions.create(
-                model="whisper-1",
-                file=audio_file,
-                response_format="verbose_json"
-            )
+        # Convert M4A to WAV for processing
+        wav_temp = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
+        wav_path = wav_temp.name
+        wav_temp.close()
         
-        # Clean up temp file
-        os.unlink(temp_path)
+        # Use torchaudio to load and convert
+        try:
+            waveform, sample_rate = torchaudio.load(temp_path)
+            # Resample to 16kHz if needed
+            if sample_rate != 16000:
+                resampler = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=16000)
+                waveform = resampler(waveform)
+            # Convert to mono if stereo
+            if waveform.shape[0] > 1:
+                waveform = torch.mean(waveform, dim=0, keepdim=True)
+            # Save as WAV
+            torchaudio.save(wav_path, waveform, 16000)
+        except Exception as e:
+            logger.warning(f"torchaudio conversion failed: {e}, trying soundfile")
+            # Fallback: try using the original file directly
+            wav_path = temp_path
         
-        transcribed_text = transcription.text
+        # Transcribe using Hausa ASR in thread pool
+        loop = asyncio.get_event_loop()
+        transcribed_text = await loop.run_in_executor(
+            asr_executor,
+            transcribe_hausa_audio_sync,
+            wav_path
+        )
+        
+        # Clean up temp files
+        try:
+            os.unlink(temp_path)
+            if wav_path != temp_path:
+                os.unlink(wav_path)
+        except:
+            pass
         
         # Save message to database
         message = Message(
