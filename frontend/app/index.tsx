@@ -60,9 +60,11 @@ export default function MeneneApp() {
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<Conversation[]>([]);
+  const [isCancelled, setIsCancelled] = useState(false);
   
   const flatListRef = useRef<FlatList>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Initialize app
   useEffect(() => {
