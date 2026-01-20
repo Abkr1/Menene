@@ -593,11 +593,11 @@ async def health_check():
         "status": "healthy",
         "services": {
             "mongodb": "connected" if client else "disconnected",
-            "asr": "ncair1/hausa-asr (fine-tuned Whisper for Hausa)",
+            "asr": "Abkrs1/Hausa-ASR-copy (fine-tuned Whisper for Hausa)",
             "gemini": "configured" if os.environ.get('EMERGENT_LLM_KEY') else "not configured",
             "tts": "twb-voice-hausa-tts (CLEAR-Global/TWB-Voice-Hausa-TTS-1.0)"
         },
-        "asr_engine": "NCAIR1/Hausa-ASR (Fine-tuned Whisper Small)",
+        "asr_engine": "Abkrs1/Hausa-ASR-copy (Fine-tuned Whisper Small)",
         "tts_engine": "TWB Voice Hausa TTS (Fully Optimized)",
         "tts_speaker": f"{FIXED_SPEAKER} (female voice - locked)",
         "optimizations": [
