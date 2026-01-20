@@ -42,17 +42,61 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Thread pool for TTS processing
+# Thread pool for TTS and ASR processing
 tts_executor = ThreadPoolExecutor(max_workers=2)
+asr_executor = ThreadPoolExecutor(max_workers=2)
 
-# Initialize AI clients (lazily to avoid startup errors)
-openai_client = None
-def get_openai_client():
-    global openai_client
-    if openai_client is None:
-        # Use dedicated OpenAI API key for Whisper transcription
-        openai_client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
-    return openai_client
+# ==================== HAUSA ASR MODEL (NCAIR1/Hausa-ASR) ====================
+# Fine-tuned Whisper model specifically for Hausa language
+hausa_asr_pipe = None
+
+def load_hausa_asr():
+    """Load NCAIR1/Hausa-ASR model for Hausa speech recognition"""
+    global hausa_asr_pipe
+    
+    logger.info("Loading Hausa ASR model (NCAIR1/Hausa-ASR)...")
+    
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+    
+    model_id = "NCAIR1/Hausa-ASR"
+    
+    hausa_asr_pipe = pipeline(
+        "automatic-speech-recognition",
+        model=model_id,
+        torch_dtype=torch_dtype,
+        device=device,
+    )
+    
+    logger.info("Hausa ASR model loaded successfully!")
+    return hausa_asr_pipe
+
+def get_hausa_asr():
+    """Get or load Hausa ASR pipeline"""
+    global hausa_asr_pipe
+    if hausa_asr_pipe is None:
+        hausa_asr_pipe = load_hausa_asr()
+    return hausa_asr_pipe
+
+def transcribe_hausa_audio_sync(audio_path: str) -> str:
+    """Synchronous Hausa audio transcription"""
+    pipe = get_hausa_asr()
+    
+    # Load and resample audio to 16kHz if needed
+    audio, sample_rate = sf.read(audio_path)
+    
+    if sample_rate != 16000:
+        # Resample to 16kHz
+        audio_tensor = torch.tensor(audio).float()
+        if len(audio_tensor.shape) == 1:
+            audio_tensor = audio_tensor.unsqueeze(0)
+        resampler = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=16000)
+        audio_resampled = resampler(audio_tensor)
+        audio = audio_resampled.squeeze().numpy()
+    
+    # Transcribe
+    result = pipe(audio, generate_kwargs={"language": "ha", "task": "transcribe"})
+    return result["text"]
 
 # ==================== OPTIMIZED TWB VOICE TTS ====================
 # Optimizations applied:
