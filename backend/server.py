@@ -373,8 +373,7 @@ async def transcribe_audio(
         return {
             "success": True,
             "transcription": transcribed_text,
-            "message_id": message.id,
-            "duration": transcription.duration if hasattr(transcription, 'duration') else None
+            "message_id": message.id
         }
         
     except Exception as e:
