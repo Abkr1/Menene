@@ -326,17 +326,50 @@ export default function MeneneApp() {
     await getAIResponse(messageText);
   };
 
+  // Stop generating response (cancel chat and TTS)
+  const stopGenerating = async () => {
+    // Cancel any ongoing requests
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Stop any playing audio
+    if (sound) {
+      try {
+        await sound.stopAsync();
+        await sound.unloadAsync();
+        setSound(null);
+      } catch (e) {
+        // Ignore errors
+      }
+    }
+    
+    setIsCancelled(true);
+    setIsLoading(false);
+    setIsPlayingAudio(false);
+    setIsAudioPaused(false);
+  };
+
   const getAIResponse = async (userMessage: string) => {
     if (!currentConversation) return;
 
+    // Create new abort controller for this request
+    abortControllerRef.current = new AbortController();
+    setIsCancelled(false);
     setIsLoading(true);
+    
     try {
       const response = await axios.post(`${BACKEND_URL}/api/chat`, {
         conversation_id: currentConversation.id,
         user_id: userId,
         message: userMessage,
         language: 'ha',
+      }, {
+        signal: abortControllerRef.current.signal
       });
+
+      // Check if cancelled before continuing
+      if (isCancelled) return;
 
       if (response.data.success) {
         const assistantMessage: Message = {
@@ -348,27 +381,44 @@ export default function MeneneApp() {
 
         setMessages((prev) => [...prev, assistantMessage]);
 
-        // Generate and play TTS for assistant response
-        await playTextToSpeech(response.data.response);
+        // Check if cancelled before playing TTS
+        if (!isCancelled) {
+          // Generate and play TTS for assistant response
+          await playTextToSpeech(response.data.response);
+        }
       }
 
     } catch (error: any) {
+      if (axios.isCancel(error) || error.name === 'AbortError') {
+        console.log('Request cancelled by user');
+        return;
+      }
       console.error('Chat error:', error);
       Alert.alert('Error', error.response?.data?.detail || 'Failed to get response');
     } finally {
       setIsLoading(false);
+      abortControllerRef.current = null;
     }
   };
 
   const playTextToSpeech = async (text: string) => {
+    // Check if cancelled
+    if (isCancelled) return;
+    
     try {
-      // Don't set isPlayingAudio here - wait until audio actually starts
-
+      // Create abort controller for TTS request
+      const ttsAbortController = new AbortController();
+      
       // Using TWB Voice Hausa TTS (Fully Optimized - Female Voice)
       const response = await axios.post(`${BACKEND_URL}/api/text-to-speech`, {
         text,
         language: 'ha',
+      }, {
+        signal: ttsAbortController.signal
       });
+
+      // Check if cancelled before playing audio
+      if (isCancelled) return;
 
       if (response.data.success) {
         const audioContent = response.data.audio_content;
