@@ -360,7 +360,7 @@ export default function MeneneApp() {
 
   const playTextToSpeech = async (text: string) => {
     try {
-      setIsPlayingAudio(true);
+      // Don't set isPlayingAudio here - wait until audio actually starts
 
       // Using TWB Voice Hausa TTS (Fully Optimized - Female Voice)
       const response = await axios.post(`${BACKEND_URL}/api/text-to-speech`, {
@@ -388,8 +388,13 @@ export default function MeneneApp() {
 
         // Set playback status callback
         newSound.setOnPlaybackStatusUpdate((status: any) => {
+          if (status.isPlaying && !isPlayingAudio) {
+            // Audio has started playing - now show the controls
+            setIsPlayingAudio(true);
+          }
           if (status.didJustFinish) {
             setIsPlayingAudio(false);
+            setIsAudioPaused(false);
           }
         });
       }
