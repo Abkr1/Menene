@@ -17,8 +17,10 @@ import io
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
-# OpenAI for Whisper
-from openai import OpenAI
+# Hausa ASR (NCAIR1/Hausa-ASR) - Fine-tuned Whisper for Hausa
+from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
+import soundfile as sf
+import torchaudio
 
 # TWB Voice Hausa TTS (Coqui TTS) - Optimized
 from TTS.api import TTS
