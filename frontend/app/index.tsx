@@ -1107,10 +1107,22 @@ export default function MeneneApp() {
             showsVerticalScrollIndicator={true}
           />
 
-          {/* Loading Indicator */}
+          {/* Loading Indicator with Stop Button */}
           {isLoading && (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color="#007AFF" />
+              <View style={styles.loadingIndicator}>
+                <ActivityIndicator size="small" color="#007AFF" />
+                <Text style={[styles.loadingText, isDark && styles.loadingTextDark]}>
+                  Generating response...
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.stopGeneratingButton}
+                onPress={stopGenerating}
+              >
+                <Ionicons name="stop-circle" size={24} color="#FF3B30" />
+                <Text style={styles.stopGeneratingText}>Stop</Text>
+              </TouchableOpacity>
             </View>
           )}
 
