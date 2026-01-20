@@ -292,7 +292,7 @@ def synthesize_speech_optimized(text: str) -> tuple:
     return wav_array, target_sample_rate
 
 
-# ==================== SPEECH TO TEXT ENDPOINT (NCAIR1/Hausa-ASR) ====================
+# ==================== SPEECH TO TEXT ENDPOINT (Abkrs1/Hausa-ASR-copy) ====================
 
 @api_router.post("/speech-to-text")
 async def transcribe_audio(
@@ -300,7 +300,7 @@ async def transcribe_audio(
     user_id: str = File(...),
     conversation_id: str = File(...)
 ):
-    """Transcribe Hausa audio using NCAIR1/Hausa-ASR (fine-tuned Whisper for Hausa)"""
+    """Transcribe Hausa audio using Abkrs1/Hausa-ASR-copy (fine-tuned Whisper for Hausa)"""
     try:
         logger.info(f"Received audio file: {audio.filename}, size: {audio.size}")
         
@@ -312,27 +312,31 @@ async def transcribe_audio(
             content = await audio.read()
             await f.write(content)
         
-        # Convert M4A to WAV for processing
+        # Convert M4A to WAV using ffmpeg (16kHz mono)
         wav_temp = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
         wav_path = wav_temp.name
         wav_temp.close()
         
-        # Use torchaudio to load and convert
+        import subprocess
         try:
-            waveform, sample_rate = torchaudio.load(temp_path)
-            # Resample to 16kHz if needed
-            if sample_rate != 16000:
-                resampler = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=16000)
-                waveform = resampler(waveform)
-            # Convert to mono if stereo
-            if waveform.shape[0] > 1:
-                waveform = torch.mean(waveform, dim=0, keepdim=True)
-            # Save as WAV
-            torchaudio.save(wav_path, waveform, 16000)
-        except Exception as e:
-            logger.warning(f"torchaudio conversion failed: {e}, trying soundfile")
-            # Fallback: try using the original file directly
-            wav_path = temp_path
+            # Use ffmpeg to convert M4A to 16kHz mono WAV
+            result = subprocess.run([
+                'ffmpeg', '-y', '-i', temp_path,
+                '-ar', '16000',  # Sample rate 16kHz
+                '-ac', '1',      # Mono
+                '-f', 'wav',     # Output format
+                wav_path
+            ], capture_output=True, text=True, timeout=30)
+            
+            if result.returncode != 0:
+                logger.error(f"FFmpeg error: {result.stderr}")
+                raise Exception(f"Audio conversion failed: {result.stderr}")
+                
+            logger.info("Audio converted to WAV successfully")
+        except subprocess.TimeoutExpired:
+            raise Exception("Audio conversion timed out")
+        except FileNotFoundError:
+            raise Exception("FFmpeg not found. Please install ffmpeg.")
         
         # Transcribe using Hausa ASR in thread pool
         loop = asyncio.get_event_loop()
@@ -345,8 +349,7 @@ async def transcribe_audio(
         # Clean up temp files
         try:
             os.unlink(temp_path)
-            if wav_path != temp_path:
-                os.unlink(wav_path)
+            os.unlink(wav_path)
         except:
             pass
         
